@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -153,27 +152,40 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess }) => {
         contract_url: contractUrl,
         resume_url: resumeUrl,
         status: 'pending',
+        temp_password: temporaryPassword,
       }).select().single();
       
       if (error) throw error;
       
-      // Call the edge function to create user account and send credentials email
-      const response = await fetch(`${window.location.origin}/api/send-employee-credentials`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          employee_email: values.email,
-          employee_name: values.name,
-          temporary_password: temporaryPassword
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create employee account");
+      try {
+        // Call the edge function to create user account and send credentials email
+        const response = await fetch(`${window.location.origin}/api/send-employee-credentials`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            employee_email: values.email,
+            employee_name: values.name,
+            temporary_password: temporaryPassword
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create employee account");
+        }
+        
+        let responseData;
+        try {
+          const responseText = await response.text();
+          responseData = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+          console.error("Error parsing response:", parseError);
+        }
+      } catch (apiError: any) {
+        console.error("API error:", apiError);
       }
       
       toast({

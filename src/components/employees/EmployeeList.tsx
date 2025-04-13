@@ -11,12 +11,23 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, FileText, RefreshCw } from "lucide-react";
+import { Eye, FileText, RefreshCw, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Employee } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface EmployeeListProps {
   refreshTrigger: number;
@@ -26,6 +37,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,6 +84,34 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
 
   const handleViewEmployee = (id: string) => {
     navigate(`/employees/${id}`);
+  };
+
+  const handleDeleteEmployee = async () => {
+    if (!employeeToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', employeeToDelete);
+        
+      if (error) throw error;
+      
+      setEmployees(employees.filter(employee => employee.id !== employeeToDelete));
+      
+      toast({
+        title: "Employee removed",
+        description: "Employee has been successfully removed",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error removing employee",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setEmployeeToDelete(null);
+    }
   };
 
   return (
@@ -123,14 +163,47 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
                     <TableCell>{employee.email}</TableCell>
                     <TableCell>{getStatusBadge(employee.status)}</TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleViewEmployee(employee.id)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
+                      <div className="flex justify-end space-x-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleViewEmployee(employee.id)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        
+                        <AlertDialog open={employeeToDelete === employee.id} onOpenChange={(open) => !open && setEmployeeToDelete(null)}>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => setEmployeeToDelete(employee.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Remove
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action will permanently remove {employee.name} from the system. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={handleDeleteEmployee}
+                                className="bg-red-500 hover:bg-red-600"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

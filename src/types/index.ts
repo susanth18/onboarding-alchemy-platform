@@ -1,4 +1,3 @@
-
 export interface HRProfile {
   id: string;
   name: string;
@@ -13,11 +12,12 @@ export interface Employee {
   name: string;
   employee_id: string;
   role: string;
+  email: string;
+  phone: string | null;
   job_description_url: string | null;
   contract_url: string | null;
   resume_url: string | null;
-  email: string;
-  phone: string | null;
+  status: "pending" | "active" | "completed";
   created_at: string;
-  status: 'pending' | 'active' | 'completed';
+  temp_password?: string;
 }

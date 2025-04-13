@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, FileText, Mail, Phone, User, Briefcase, Calendar } from "lucide-react";
+import { ArrowLeft, Download, FileText, Mail, Phone, User, Briefcase, Calendar, Key } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 
@@ -157,6 +157,19 @@ const EmployeeDetails: React.FC = () => {
                     </p>
                   </div>
                 </div>
+
+                {employee.temp_password && (
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-500">Temporary Password</p>
+                    <div className="flex items-center">
+                      <Key className="h-4 w-4 text-gray-400 mr-2" />
+                      <p className="font-medium bg-gray-100 px-2 py-1 rounded">{employee.temp_password}</p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      These credentials have been sent to the employee's email.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
