@@ -12,11 +12,18 @@ import {
   Settings,
   Menu,
   X,
-  LogOut
+  LogOut,
+  UserCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 interface SidebarItemProps {
   icon: React.ElementType;
@@ -55,7 +62,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -133,6 +140,12 @@ const Sidebar = () => {
             label={collapsed ? "" : "Analytics"}
             isActive={isActive("/analytics")}
             onClick={() => handleItemClick("/analytics")}
+          />
+          <SidebarItem
+            icon={UserCircle}
+            label={collapsed ? "" : "Profile"}
+            isActive={isActive("/profile")}
+            onClick={() => handleItemClick("/profile")}
           />
         </ul>
       </nav>
