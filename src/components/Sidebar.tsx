@@ -11,9 +11,12 @@ import {
   BarChart, 
   Settings,
   Menu,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface SidebarItemProps {
   icon: React.ElementType;
@@ -52,10 +55,16 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [active, setActive] = useState("Dashboard");
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleItemClick = (label: string) => {
-    setActive(label);
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
+
+  const handleItemClick = (path: string) => {
+    navigate(path);
   };
 
   return (
@@ -86,46 +95,44 @@ const Sidebar = () => {
           <SidebarItem
             icon={LayoutDashboard}
             label={collapsed ? "" : "Dashboard"}
-            isActive={active === "Dashboard"}
-            onClick={() => handleItemClick("Dashboard")}
+            isActive={isActive("/")}
+            onClick={() => handleItemClick("/")}
           />
           <SidebarItem
             icon={Users}
             label={collapsed ? "" : "Employees"}
-            isActive={active === "Employees"}
-            onClick={() => handleItemClick("Employees")}
-            badge={3}
+            isActive={isActive("/employees")}
+            onClick={() => handleItemClick("/employees")}
           />
           <SidebarItem
             icon={FileText}
             label={collapsed ? "" : "Documents"}
-            isActive={active === "Documents"}
-            onClick={() => handleItemClick("Documents")}
+            isActive={isActive("/documents")}
+            onClick={() => handleItemClick("/documents")}
           />
           <SidebarItem
             icon={CheckSquare}
             label={collapsed ? "" : "30-60-90 Plans"}
-            isActive={active === "30-60-90 Plans"}
-            onClick={() => handleItemClick("30-60-90 Plans")}
+            isActive={isActive("/plans")}
+            onClick={() => handleItemClick("/plans")}
           />
           <SidebarItem
             icon={Calendar}
             label={collapsed ? "" : "Schedules"}
-            isActive={active === "Schedules"}
-            onClick={() => handleItemClick("Schedules")}
+            isActive={isActive("/schedules")}
+            onClick={() => handleItemClick("/schedules")}
           />
           <SidebarItem
             icon={MessageSquare}
             label={collapsed ? "" : "Messages"}
-            isActive={active === "Messages"}
-            onClick={() => handleItemClick("Messages")}
-            badge={5}
+            isActive={isActive("/messages")}
+            onClick={() => handleItemClick("/messages")}
           />
           <SidebarItem
             icon={BarChart}
             label={collapsed ? "" : "Analytics"}
-            isActive={active === "Analytics"}
-            onClick={() => handleItemClick("Analytics")}
+            isActive={isActive("/analytics")}
+            onClick={() => handleItemClick("/analytics")}
           />
         </ul>
       </nav>
@@ -134,9 +141,17 @@ const Sidebar = () => {
         <SidebarItem
           icon={Settings}
           label={collapsed ? "" : "Settings"}
-          isActive={active === "Settings"}
-          onClick={() => handleItemClick("Settings")}
+          isActive={isActive("/settings")}
+          onClick={() => handleItemClick("/settings")}
         />
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent mt-2"
+          onClick={() => signOut()}
+        >
+          <LogOut size={20} />
+          {!collapsed && <span className="flex-grow text-left">Sign Out</span>}
+        </Button>
       </div>
     </div>
   );
