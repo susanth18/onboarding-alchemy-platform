@@ -23,6 +23,7 @@ export type Database = {
           resume_url: string | null
           role: string
           status: string
+          temp_password: string | null
         }
         Insert: {
           contract_url?: string | null
@@ -37,6 +38,7 @@ export type Database = {
           resume_url?: string | null
           role: string
           status?: string
+          temp_password?: string | null
         }
         Update: {
           contract_url?: string | null
@@ -51,6 +53,7 @@ export type Database = {
           resume_url?: string | null
           role?: string
           status?: string
+          temp_password?: string | null
         }
         Relationships: [
           {

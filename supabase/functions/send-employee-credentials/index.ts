@@ -34,6 +34,7 @@ serve(async (req) => {
     });
     
     if (authError) {
+      console.error("Auth error:", authError);
       throw authError;
     }
 

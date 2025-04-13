@@ -104,7 +104,6 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess }) => {
     }
   };
 
-  // Generate a random password
   const generatePassword = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
     let password = "";
@@ -120,7 +119,6 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess }) => {
     setIsSubmitting(true);
     
     try {
-      // Upload files if present
       let jobDescriptionUrl = documentUrls.job_description_url;
       let contractUrl = documentUrls.contract_url;
       let resumeUrl = documentUrls.resume_url;
@@ -137,10 +135,8 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess }) => {
         resumeUrl = await uploadFile(resumeFile, 'resume');
       }
       
-      // Generate a temporary password for the employee
       const temporaryPassword = generatePassword();
       
-      // Create employee in the database
       const { data, error } = await supabase.from("employees").insert({
         hr_id: user.id,
         name: values.name,
@@ -158,7 +154,6 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess }) => {
       if (error) throw error;
       
       try {
-        // Call the edge function to create user account and send credentials email
         const response = await fetch(`${window.location.origin}/api/send-employee-credentials`, {
           method: 'POST',
           headers: {
@@ -176,16 +171,13 @@ const AddEmployeeForm: React.FC<AddEmployeeFormProps> = ({ onSuccess }) => {
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to create employee account");
         }
-        
-        let responseData;
-        try {
-          const responseText = await response.text();
-          responseData = responseText ? JSON.parse(responseText) : {};
-        } catch (parseError) {
-          console.error("Error parsing response:", parseError);
-        }
       } catch (apiError: any) {
         console.error("API error:", apiError);
+        toast({
+          title: "Warning",
+          description: "Employee was created but there was an issue sending credentials. Please check the system logs.",
+          variant: "destructive",
+        });
       }
       
       toast({

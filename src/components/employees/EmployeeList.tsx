@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, FileText, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, FileText, RefreshCw, Trash2, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Employee } from "@/types";
@@ -50,6 +50,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
         const { data, error } = await supabase
           .from('employees')
           .select('*')
+          .eq('hr_id', user.id)
           .order('created_at', { ascending: false });
           
         if (error) throw error;
@@ -121,11 +122,11 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => navigate('/employees')}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-1"
         >
-          <RefreshCw className="h-4 w-4" />
-          <span>View All</span>
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
         </Button>
       </CardHeader>
       <CardContent>
@@ -150,17 +151,19 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
                   <TableHead>ID</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Password</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {employees.slice(0, 5).map((employee) => (
+                {employees.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell className="font-medium">{employee.name}</TableCell>
                     <TableCell>{employee.employee_id}</TableCell>
                     <TableCell>{employee.role}</TableCell>
                     <TableCell>{employee.email}</TableCell>
+                    <TableCell>{employee.temp_password || "N/A"}</TableCell>
                     <TableCell>{getStatusBadge(employee.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
