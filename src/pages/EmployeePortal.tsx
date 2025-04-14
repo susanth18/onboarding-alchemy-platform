@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,6 +52,7 @@ const EmployeePortal = () => {
   const [meetingPurpose, setMeetingPurpose] = useState<string>("");
   const [completedTasks, setCompletedTasks] = useState<number>(0);
   const [totalTasks, setTotalTasks] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>([
     {
       title: "First 30 Days",
@@ -246,6 +246,10 @@ const EmployeePortal = () => {
     setMeetingPurpose("");
   };
 
+  const setActiveTabAndNavigate = (tabValue: string) => {
+    setActiveTab(tabValue);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -323,7 +327,7 @@ const EmployeePortal = () => {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="dashboard" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTabAndNavigate} className="space-y-6">
           <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-4">
             <TabsTrigger value="dashboard" className="flex items-center">
               <User className="h-4 w-4 mr-2" />
@@ -378,7 +382,7 @@ const EmployeePortal = () => {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => document.querySelector('[data-value="documents"]')?.click()}>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTabAndNavigate("documents")}>
                     View Documents
                   </Button>
                 </CardFooter>
@@ -420,7 +424,7 @@ const EmployeePortal = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => document.querySelector('[data-value="plan"]')?.click()}>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTabAndNavigate("plan")}>
                     View Full Plan
                   </Button>
                 </CardFooter>
@@ -451,7 +455,7 @@ const EmployeePortal = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => document.querySelector('[data-value="meetings"]')?.click()}>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTabAndNavigate("meetings")}>
                     Schedule Meeting
                   </Button>
                 </CardFooter>
