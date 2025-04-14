@@ -3,13 +3,35 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { FileText, CalendarCheck, Users, CheckSquare, ArrowLeft } from "lucide-react";
+import { FileText, CalendarCheck, Users, CheckSquare, ArrowLeft, Download, User, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { format, addDays } from "date-fns";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+
+type MilestoneType = {
+  id: number;
+  text: string;
+  completed: boolean;
+  notes: string;
+};
+
+type MilestonePeriod = {
+  title: string;
+  milestones: MilestoneType[];
+};
 
 const EmployeePortal = () => {
   const navigate = useNavigate();
@@ -26,6 +48,38 @@ const EmployeePortal = () => {
     contract_url: null,
     resume_url: null,
   });
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [meetingTime, setMeetingTime] = useState<string>("10:00");
+  const [meetingPurpose, setMeetingPurpose] = useState<string>("");
+  const [completedTasks, setCompletedTasks] = useState<number>(0);
+  const [totalTasks, setTotalTasks] = useState<number>(0);
+  const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>([
+    {
+      title: "First 30 Days",
+      milestones: [
+        { id: 1, text: "Complete company orientation", completed: false, notes: "" },
+        { id: 2, text: "Meet with team members", completed: false, notes: "" },
+        { id: 3, text: "Set up workstation and tools", completed: false, notes: "" },
+        { id: 4, text: "Review job description and responsibilities", completed: false, notes: "" },
+      ]
+    },
+    {
+      title: "60 Days",
+      milestones: [
+        { id: 5, text: "Complete first project", completed: false, notes: "" },
+        { id: 6, text: "Participate in team meeting", completed: false, notes: "" },
+        { id: 7, text: "Complete required training modules", completed: false, notes: "" },
+      ]
+    },
+    {
+      title: "90 Days",
+      milestones: [
+        { id: 8, text: "First performance review", completed: false, notes: "" },
+        { id: 9, text: "Set long-term goals", completed: false, notes: "" },
+        { id: 10, text: "Present onboarding feedback", completed: false, notes: "" },
+      ]
+    }
+  ]);
 
   useEffect(() => {
     if (!user) {
@@ -80,6 +134,76 @@ const EmployeePortal = () => {
     loadEmployeeData();
   }, [user, navigate]);
 
+  useEffect(() => {
+    // Calculate completed tasks and total tasks
+    let completed = 0;
+    let total = 0;
+
+    milestonePlan.forEach(period => {
+      period.milestones.forEach(milestone => {
+        total++;
+        if (milestone.completed) {
+          completed++;
+        }
+      });
+    });
+
+    setCompletedTasks(completed);
+    setTotalTasks(total);
+  }, [milestonePlan]);
+
+  const toggleMilestoneCompletion = async (periodIndex: number, milestoneIndex: number) => {
+    const newMilestonePlan = [...milestonePlan];
+    const milestone = newMilestonePlan[periodIndex].milestones[milestoneIndex];
+    milestone.completed = !milestone.completed;
+    
+    setMilestonePlan(newMilestonePlan);
+    
+    // In a real app, you would save this to the database
+    toast({
+      title: milestone.completed ? "Task completed" : "Task marked as incomplete",
+      description: `"${milestone.text}" has been updated`,
+    });
+  };
+
+  const updateMilestoneNotes = (periodIndex: number, milestoneIndex: number, notes: string) => {
+    const newMilestonePlan = [...milestonePlan];
+    newMilestonePlan[periodIndex].milestones[milestoneIndex].notes = notes;
+    setMilestonePlan(newMilestonePlan);
+  };
+
+  const scheduleMeeting = () => {
+    if (!selectedDate) {
+      toast({
+        title: "Date required",
+        description: "Please select a date for the meeting",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!meetingPurpose.trim()) {
+      toast({
+        title: "Purpose required",
+        description: "Please provide a purpose for the meeting",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formattedDate = format(selectedDate, "MMMM do, yyyy");
+    
+    toast({
+      title: "Meeting scheduled",
+      description: `Your meeting has been scheduled for ${formattedDate} at ${meetingTime}`,
+    });
+
+    // Reset form
+    setSelectedDate(undefined);
+    setMeetingTime("10:00");
+    setMeetingPurpose("");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -115,233 +239,470 @@ const EmployeePortal = () => {
         </div>
       
         <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Welcome to your Onboarding Portal</CardTitle>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Welcome to your Onboarding Portal</CardTitle>
+                <CardDescription>Track your onboarding progress and access resources</CardDescription>
+              </div>
+              <Avatar className="h-16 w-16">
+                <AvatarFallback className="bg-primary text-white text-xl">
+                  {employeeData?.name?.charAt(0) || user?.email?.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <p>
-                <strong>Your HR Manager:</strong> {hrName}
-              </p>
-              <p>
-                <strong>Role:</strong> {employeeData?.role}
-              </p>
-              <p>
-                <strong>Status:</strong> {' '}
-                <Badge className={
-                  employeeData?.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                  employeeData?.status === 'active' ? 'bg-green-100 text-green-800' : 
-                  'bg-blue-100 text-blue-800'
-                }>
-                  {employeeData?.status}
-                </Badge>
-              </p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Your HR Manager</p>
+                  <p className="font-medium">{hrName || "Not assigned"}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Role</p>
+                  <p className="font-medium">{employeeData?.role || "Not specified"}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={
+                    employeeData?.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                    employeeData?.status === 'active' ? 'bg-green-100 text-green-800' : 
+                    'bg-blue-100 text-blue-800'
+                  }>
+                    {employeeData?.status || "Unknown"}
+                  </Badge>
+                </div>
+              </div>
+              
+              <Separator className="my-4" />
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-medium">Onboarding Progress</p>
+                  <p className="text-sm text-muted-foreground">{completedTasks} of {totalTasks} tasks completed</p>
+                </div>
+                <Progress value={(completedTasks / totalTasks) * 100} className="h-2" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="documents">
-          <TabsList className="mb-4">
-            <TabsTrigger value="documents">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-4">
+            <TabsTrigger value="dashboard" className="flex items-center">
+              <User className="h-4 w-4 mr-2" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="flex items-center">
               <FileText className="h-4 w-4 mr-2" />
               Documents
             </TabsTrigger>
-            <TabsTrigger value="plan">
+            <TabsTrigger value="plan" className="flex items-center">
               <CalendarCheck className="h-4 w-4 mr-2" />
               30-60-90 Day Plan
             </TabsTrigger>
-            <TabsTrigger value="meetings">
+            <TabsTrigger value="meetings" className="flex items-center">
               <Users className="h-4 w-4 mr-2" />
               Meetings
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="documents" className="space-y-4">
+          <TabsContent value="dashboard">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-primary" />
+                    Documents
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Access your job-related documents and agreements
+                  </p>
+                  <ul className="space-y-2">
+                    <li className="flex items-center text-sm">
+                      <FileText className="h-4 w-4 mr-2 text-primary" />
+                      Job Description
+                      {documents.job_description_url ? (
+                        <Badge variant="outline" className="ml-2">Available</Badge>
+                      ) : (
+                        <Badge variant="outline" className="ml-2 bg-gray-100">Pending</Badge>
+                      )}
+                    </li>
+                    <li className="flex items-center text-sm">
+                      <FileText className="h-4 w-4 mr-2 text-primary" />
+                      Contract
+                      {documents.contract_url ? (
+                        <Badge variant="outline" className="ml-2">Available</Badge>
+                      ) : (
+                        <Badge variant="outline" className="ml-2 bg-gray-100">Pending</Badge>
+                      )}
+                    </li>
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById('documents-tab')?.click()} className="w-full">
+                    View Documents
+                  </Button>
+                </CardFooter>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <CalendarCheck className="h-5 w-5 mr-2 text-primary" />
+                    Your Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Track your 30-60-90 day plan progress
+                  </p>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>First 30 Days</span>
+                        <span>{milestonePlan[0].milestones.filter(m => m.completed).length}/{milestonePlan[0].milestones.length}</span>
+                      </div>
+                      <Progress value={(milestonePlan[0].milestones.filter(m => m.completed).length / milestonePlan[0].milestones.length) * 100} className="h-2" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>60 Days</span>
+                        <span>{milestonePlan[1].milestones.filter(m => m.completed).length}/{milestonePlan[1].milestones.length}</span>
+                      </div>
+                      <Progress value={(milestonePlan[1].milestones.filter(m => m.completed).length / milestonePlan[1].milestones.length) * 100} className="h-2" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>90 Days</span>
+                        <span>{milestonePlan[2].milestones.filter(m => m.completed).length}/{milestonePlan[2].milestones.length}</span>
+                      </div>
+                      <Progress value={(milestonePlan[2].milestones.filter(m => m.completed).length / milestonePlan[2].milestones.length) * 100} className="h-2" />
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById('plan-tab')?.click()} className="w-full">
+                    View Full Plan
+                  </Button>
+                </CardFooter>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-primary" />
+                    Upcoming Meetings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Schedule and manage your onboarding meetings
+                  </p>
+                  <div className="space-y-3">
+                    <div className="p-3 border rounded-md">
+                      <p className="font-medium">Onboarding Introduction</p>
+                      <p className="text-sm text-muted-foreground">With {hrName}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Tomorrow, 10:00 AM</p>
+                    </div>
+                    <div className="p-3 border rounded-md">
+                      <p className="font-medium">Team Introduction</p>
+                      <p className="text-sm text-muted-foreground">With Team Lead</p>
+                      <p className="text-sm text-muted-foreground mt-1">Next Monday, 2:00 PM</p>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById('meetings-tab')?.click()} className="w-full">
+                    Schedule Meeting
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="documents" id="documents-tab" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Your Documents</CardTitle>
+                <CardDescription>Access and download your onboarding documents</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {documents.job_description_url ? (
-                  <div className="p-4 border rounded-md flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-500 mr-3" />
-                      <span>Job Description</span>
-                    </div>
-                    <a 
-                      href={documents.job_description_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Button variant="outline" size="sm">View</Button>
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-4 border rounded-md flex items-center justify-between bg-gray-50">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                      <span className="text-gray-500">Job Description</span>
-                    </div>
-                    <span className="text-xs text-gray-400">Not available</span>
-                  </div>
-                )}
-                
-                {documents.contract_url ? (
-                  <div className="p-4 border rounded-md flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-500 mr-3" />
-                      <span>Contract</span>
-                    </div>
-                    <a 
-                      href={documents.contract_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Button variant="outline" size="sm">View</Button>
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-4 border rounded-md flex items-center justify-between bg-gray-50">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                      <span className="text-gray-500">Contract</span>
-                    </div>
-                    <span className="text-xs text-gray-400">Not available</span>
-                  </div>
-                )}
-                
-                {documents.resume_url ? (
-                  <div className="p-4 border rounded-md flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-500 mr-3" />
-                      <span>Resume</span>
-                    </div>
-                    <a 
-                      href={documents.resume_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Button variant="outline" size="sm">View</Button>
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-4 border rounded-md flex items-center justify-between bg-gray-50">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                      <span className="text-gray-500">Resume</span>
-                    </div>
-                    <span className="text-xs text-gray-400">Not available</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="plan" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>30-60-90 Day Plan</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-lg">First 30 Days</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="task-1" />
-                        <label htmlFor="task-1" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Complete company orientation
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="task-2" />
-                        <label htmlFor="task-2" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Meet with team members
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="task-3" />
-                        <label htmlFor="task-3" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Set up workstation and tools
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center">
+                        <FileText className="h-5 w-5 text-primary mr-2" />
+                        Job Description
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Detailed overview of your role, responsibilities, and performance expectations.
+                      </p>
+                      {documents.job_description_url ? (
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" className="flex items-center" asChild>
+                            <a href={documents.job_description_url} target="_blank" rel="noopener noreferrer">
+                              <FileText className="h-4 w-4 mr-2" />
+                              View
+                            </a>
+                          </Button>
+                          <Button size="sm" className="flex items-center" asChild>
+                            <a href={documents.job_description_url} download>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </a>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">
+                          Document not available yet. Please check back later.
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                   
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-lg">60 Days</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="task-4" />
-                        <label htmlFor="task-4" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Complete first project
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="task-5" />
-                        <label htmlFor="task-5" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Participate in team meeting
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center">
+                        <FileText className="h-5 w-5 text-primary mr-2" />
+                        Employment Contract
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Your employment agreement including terms and conditions.
+                      </p>
+                      {documents.contract_url ? (
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" className="flex items-center" asChild>
+                            <a href={documents.contract_url} target="_blank" rel="noopener noreferrer">
+                              <FileText className="h-4 w-4 mr-2" />
+                              View
+                            </a>
+                          </Button>
+                          <Button size="sm" className="flex items-center" asChild>
+                            <a href={documents.contract_url} download>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </a>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">
+                          Document not available yet. Please check back later.
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                   
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-lg">90 Days</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="task-6" />
-                        <label htmlFor="task-6" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          First performance review
-                        </label>
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center">
+                        <FileText className="h-5 w-5 text-primary mr-2" />
+                        Company Handbook
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Important company policies, culture, and guidelines.
+                      </p>
+                      <div className="text-sm text-muted-foreground">
+                        Document not available yet. Please check back later.
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="task-7" />
-                        <label htmlFor="task-7" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Set long-term goals
-                        </label>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center">
+                        <FileText className="h-5 w-5 text-primary mr-2" />
+                        Benefit Enrollment
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Health, retirement, and other company benefits information.
+                      </p>
+                      <div className="text-sm text-muted-foreground">
+                        Document not available yet. Please check back later.
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
           
-          <TabsContent value="meetings" className="space-y-4">
+          <TabsContent value="plan" id="plan-tab" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Upcoming Meetings</CardTitle>
+                <CardTitle>Your 30-60-90 Day Plan</CardTitle>
+                <CardDescription>Track your progress through the onboarding process</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-md">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold">Onboarding Introduction</h3>
-                        <p className="text-sm text-gray-500">With {hrName}</p>
-                        <p className="text-sm text-gray-500 mt-1">Tomorrow, 10:00 AM</p>
+                <div className="space-y-8">
+                  {milestonePlan.map((period, periodIndex) => (
+                    <div key={period.title} className="space-y-4">
+                      <h3 className="font-semibold text-lg">{period.title}</h3>
+                      <div className="space-y-4">
+                        {period.milestones.map((milestone, milestoneIndex) => (
+                          <div key={milestone.id} className="border rounded-md p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start space-x-3">
+                                <Checkbox 
+                                  id={`milestone-${milestone.id}`}
+                                  checked={milestone.completed}
+                                  onCheckedChange={() => toggleMilestoneCompletion(periodIndex, milestoneIndex)}
+                                  className="mt-1"
+                                />
+                                <div className="space-y-1">
+                                  <label 
+                                    htmlFor={`milestone-${milestone.id}`} 
+                                    className={`font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${milestone.completed ? 'line-through text-muted-foreground' : ''}`}
+                                  >
+                                    {milestone.text}
+                                  </label>
+                                  
+                                  <div className="mt-2">
+                                    <Label htmlFor={`notes-${milestone.id}`} className="text-sm text-muted-foreground">
+                                      Notes
+                                    </Label>
+                                    <Textarea 
+                                      id={`notes-${milestone.id}`}
+                                      placeholder="Add notes here..."
+                                      value={milestone.notes}
+                                      onChange={(e) => updateMilestoneNotes(periodIndex, milestoneIndex, e.target.value)}
+                                      className="mt-1 text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <Badge variant={milestone.completed ? "default" : "outline"}>
+                                {milestone.completed ? "Completed" : "Pending"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <Button variant="outline" size="sm">Join</Button>
                     </div>
-                  </div>
-                  
-                  <div className="p-4 border rounded-md">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold">Team Introduction</h3>
-                        <p className="text-sm text-gray-500">With Team Lead</p>
-                        <p className="text-sm text-gray-500 mt-1">Next Week, Monday 2:00 PM</p>
-                      </div>
-                      <Button variant="outline" size="sm">Join</Button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="meetings" id="meetings-tab" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Schedule a Meeting</CardTitle>
+                  <CardDescription>Book time with your HR manager or team members</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="meeting-date">Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : "Select a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          initialFocus
+                          disabled={(date) => date < new Date() || date > addDays(new Date(), 60)}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="meeting-time">Time</Label>
+                    <Input
+                      id="meeting-time"
+                      type="time"
+                      value={meetingTime}
+                      onChange={(e) => setMeetingTime(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="meeting-purpose">Purpose</Label>
+                    <Textarea
+                      id="meeting-purpose"
+                      placeholder="What would you like to discuss in this meeting?"
+                      value={meetingPurpose}
+                      onChange={(e) => setMeetingPurpose(e.target.value)}
+                    />
+                  </div>
+                  
+                  <Button className="w-full" onClick={scheduleMeeting}>
+                    Schedule Meeting
+                  </Button>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upcoming Meetings</CardTitle>
+                  <CardDescription>Your scheduled onboarding sessions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 border rounded-md">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold">Onboarding Introduction</h3>
+                          <p className="text-sm text-gray-500">With {hrName}</p>
+                          <p className="text-sm text-gray-500 mt-1">Tomorrow, 10:00 AM</p>
+                          <Badge className="mt-2">Google Meet</Badge>
+                        </div>
+                        <Button variant="outline" size="sm">Join</Button>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 border rounded-md">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold">Team Introduction</h3>
+                          <p className="text-sm text-gray-500">With Team Lead</p>
+                          <p className="text-sm text-gray-500 mt-1">Next Week, Monday 2:00 PM</p>
+                          <Badge className="mt-2">Zoom</Badge>
+                        </div>
+                        <Button variant="outline" size="sm">Join</Button>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 border rounded-md">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold">First Project Kickoff</h3>
+                          <p className="text-sm text-gray-500">With Project Team</p>
+                          <p className="text-sm text-gray-500 mt-1">June 10, 11:00 AM</p>
+                          <Badge className="mt-2">Microsoft Teams</Badge>
+                        </div>
+                        <Button variant="outline" size="sm">Join</Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>

@@ -25,7 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -35,40 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: "Welcome to HR Onboarding Portal",
           });
 
-          // Determine user role and redirect accordingly
-          if (session?.user) {
-            try {
-              // Check if user is an HR (has an hr_profile)
-              const { data: hrProfile } = await supabase
-                .from('hr_profiles')
-                .select('id')
-                .eq('id', session.user.id)
-                .maybeSingle();
-              
-              if (hrProfile) {
-                navigate('/'); // HR user goes to dashboard
-                return;
-              }
-              
-              // Check if user is an employee
-              const { data: employeeData } = await supabase
-                .from('employees')
-                .select('id')
-                .eq('email', session.user.email)
-                .maybeSingle();
-                
-              if (employeeData) {
-                navigate('/employee-portal'); // Employee goes to employee portal
-                return;
-              }
-              
-              // Default fallback - just redirect to home
-              navigate('/');
-            } catch (error) {
-              console.error('Error checking user role:', error);
-              navigate('/');
-            }
-          }
+          // We'll handle redirection in a separate effect to avoid Supabase deadlock issues
         } else if (event === 'SIGNED_OUT') {
           toast({
             title: "Signed out successfully",
@@ -89,17 +56,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  // Separate effect for redirection to avoid Supabase deadlock
+  useEffect(() => {
+    const checkUserRoleAndRedirect = async () => {
+      if (user && !isLoading) {
+        try {
+          // Check if user is an HR (has an hr_profile)
+          const { data: hrProfile } = await supabase
+            .from('hr_profiles')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          if (hrProfile) {
+            navigate('/'); // HR user goes to dashboard
+            return;
+          }
+          
+          // Check if user is an employee
+          const { data: employeeData } = await supabase
+            .from('employees')
+            .select('id')
+            .eq('email', user.email)
+            .maybeSingle();
+            
+          if (employeeData) {
+            navigate('/employee-portal'); // Employee goes to employee portal
+            return;
+          }
+          
+          // Default fallback - just redirect to home
+          navigate('/');
+        } catch (error) {
+          console.error('Error checking user role:', error);
+          navigate('/');
+        }
+      }
+    };
+    
+    checkUserRoleAndRedirect();
+  }, [user, isLoading, navigate]);
+
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      // The redirect will be handled by the onAuthStateChange listener
+      
+      if (!data.user) {
+        throw new Error("Invalid login credentials");
+      }
+      
+      // Redirection will be handled by the useEffect
     } catch (error: any) {
       toast({
         title: "Error signing in",
         description: error.message,
         variant: "destructive",
       });
+      throw error; // Re-throw to let the form know there was an error
     }
   };
 

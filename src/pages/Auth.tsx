@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -26,9 +28,14 @@ const signupSchema = z.object({
   position: z.string().min(2, { message: "Position must be at least 2 characters." }),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address." }),
+});
+
 const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -91,15 +98,22 @@ const Auth = () => {
     }
   });
 
+  const forgotPasswordForm = useForm<z.infer<typeof forgotPasswordSchema>>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    }
+  });
+
   const onLoginSubmit = async (values: z.infer<typeof loginSchema>) => {
     setIsSubmitting(true);
+    setLoginError(null);
     try {
       await signIn(values.email, values.password);
-      toast({
-        title: "Login successful",
-      });
-    } catch (error) {
-      // Error handling is done in the AuthContext
+      // The redirect happens in the AuthContext
+    } catch (error: any) {
+      setLoginError(error.message);
+      console.error("Login error:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -128,6 +142,32 @@ const Auth = () => {
     }
   };
 
+  const onForgotPasswordSubmit = async (values: z.infer<typeof forgotPasswordSchema>) => {
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+        redirectTo: `${window.location.origin}/auth?tab=reset-password`,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Reset email sent",
+        description: "Please check your email for password reset instructions",
+      });
+      
+      forgotPasswordForm.reset();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
       <div className="max-w-md w-full">
@@ -137,9 +177,10 @@ const Auth = () => {
         </div>
         
         <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-2 mb-6">
+          <TabsList className="grid grid-cols-3 mb-6">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
+            <TabsTrigger value="forgot-password">Forgot Password</TabsTrigger>
           </TabsList>
           
           <TabsContent value="login">
@@ -149,6 +190,14 @@ const Auth = () => {
                 <CardDescription>Enter your credentials to access your account</CardDescription>
               </CardHeader>
               <CardContent>
+                {loginError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {loginError}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <Form {...loginForm}>
                   <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                     <FormField
@@ -185,6 +234,13 @@ const Auth = () => {
                   </form>
                 </Form>
               </CardContent>
+              <CardFooter className="flex flex-col space-y-2">
+                <div className="text-sm text-gray-500 w-full text-center">
+                  <Button variant="link" className="p-0 h-auto" onClick={() => setActiveTab("forgot-password")}>
+                    Forgot your password?
+                  </Button>
+                </div>
+              </CardFooter>
             </Card>
           </TabsContent>
           
@@ -276,6 +332,46 @@ const Auth = () => {
               <CardFooter className="flex justify-center">
                 <p className="text-sm text-gray-500">
                   Already have an account?{" "}
+                  <Button variant="link" className="p-0 h-auto" onClick={() => setActiveTab("login")}>
+                    Login
+                  </Button>
+                </p>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="forgot-password">
+            <Card>
+              <CardHeader>
+                <CardTitle>Forgot Password</CardTitle>
+                <CardDescription>Enter your email to reset your password</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...forgotPasswordForm}>
+                  <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                    <FormField
+                      control={forgotPasswordForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="email@example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                      {isSubmitting ? "Sending reset email..." : "Reset Password"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+              <CardFooter className="flex justify-center">
+                <p className="text-sm text-gray-500">
+                  Remember your password?{" "}
                   <Button variant="link" className="p-0 h-auto" onClick={() => setActiveTab("login")}>
                     Login
                   </Button>

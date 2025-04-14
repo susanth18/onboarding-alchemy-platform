@@ -38,23 +38,40 @@ serve(async (req) => {
       throw authError;
     }
 
-    // Send a simple email notification with credentials
-    // In a production environment, you would use a proper email service like SendGrid, Resend, etc.
-    // This is a simulation of sending an email
+    // In a production environment, you would use a proper email service like Resend.com
     console.log(`
-      Email would be sent to: ${employee_email}
+      ----------------------------------------------------
+      EMAIL NOTIFICATION - Employee Credentials
+      ----------------------------------------------------
+      To: ${employee_email}
       Subject: Your Onboarding Portal Credentials
-      Body:
+      
       Hello ${employee_name},
       
       You have been added to the HR Onboarding Portal.
       
       Your login credentials are:
-      Username: ${employee_email}
+      Email: ${employee_email}
       Temporary Password: ${temporary_password}
       
-      Please log in and complete your onboarding process.
+      Please log in at ${supabaseUrl.replace(".supabase.co", ".app")} and complete your onboarding process.
+      
+      You will be required to change your password on first login.
+      
+      Regards,
+      HR Department
+      ----------------------------------------------------
     `);
+
+    // In a real implementation, you would send an actual email here
+    // Example:
+    // const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+    // await resend.emails.send({
+    //   from: "hr@company.com",
+    //   to: employee_email,
+    //   subject: "Your Onboarding Portal Credentials",
+    //   html: `<p>Hello ${employee_name},</p>...`
+    // });
 
     return new Response(
       JSON.stringify({ 
