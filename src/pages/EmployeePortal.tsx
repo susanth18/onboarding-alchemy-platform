@@ -19,6 +19,7 @@ import { format, addDays } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Meeting } from "@/types";
 
 type MilestoneType = {
   id: number;
@@ -47,6 +48,7 @@ const EmployeePortal = () => {
     contract_url: null,
     resume_url: null,
   });
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [meetingTime, setMeetingTime] = useState<string>("10:00");
   const [meetingPurpose, setMeetingPurpose] = useState<string>("");
@@ -139,15 +141,24 @@ const EmployeePortal = () => {
         const { data: meetingsData, error: meetingsError } = await supabase
           .from('meetings')
           .select('*')
-          .eq('employee_id', employeeData.id)
-          .order('meeting_date', { ascending: true });
+          .eq('employee_id', employeeData.id) as { data: any[]; error: any };
           
         if (meetingsError) {
           console.error("Error fetching meetings:", meetingsError);
         } else {
-          // You can set the meetings to state here if needed
           console.log("Meetings loaded:", meetingsData);
-          // Update your meetings display with this data
+          // Format and set the meetings data
+          const formattedMeetings: Meeting[] = (meetingsData || []).map((meeting) => ({
+            id: meeting.id,
+            hr_id: meeting.hr_id,
+            employee_id: meeting.employee_id,
+            meeting_date: meeting.meeting_date,
+            meeting_time: meeting.meeting_time,
+            purpose: meeting.purpose,
+            status: meeting.status as 'scheduled' | 'completed' | 'cancelled'
+          }));
+          
+          setMeetings(formattedMeetings);
         }
 
         // In a real app, you would load milestones from Supabase
@@ -220,7 +231,7 @@ const EmployeePortal = () => {
     });
   };
 
-  const scheduleMeeting = () => {
+  const scheduleMeeting = async () => {
     if (!selectedDate) {
       toast({
         title: "Date required",
@@ -239,30 +250,67 @@ const EmployeePortal = () => {
       return;
     }
 
-    const formattedDate = format(selectedDate, "MMMM do, yyyy");
-    
-    toast({
-      title: "Meeting scheduled",
-      description: `Your meeting has been scheduled for ${formattedDate} at ${meetingTime}`,
-    });
+    try {
+      // Insert meeting into Supabase
+      const { data, error } = await supabase
+        .from('meetings')
+        .insert({
+          hr_id: employeeData?.hr_id,
+          employee_id: employeeData?.id,
+          meeting_date: selectedDate.toISOString(),
+          meeting_time: meetingTime,
+          purpose: meetingPurpose,
+          status: 'scheduled'
+        } as any)
+        .select();
 
-    // Simulate saving to Supabase
-    console.log("Would save meeting to Supabase:", {
-      employee_id: employeeData?.id,
-      hr_id: employeeData?.hr_id,
-      date: selectedDate,
-      time: meetingTime,
-      purpose: meetingPurpose
-    });
+      if (error) throw error;
 
-    // Reset form
-    setSelectedDate(undefined);
-    setMeetingTime("10:00");
-    setMeetingPurpose("");
+      const formattedDate = format(selectedDate, "MMMM do, yyyy");
+      
+      toast({
+        title: "Meeting scheduled",
+        description: `Your meeting has been scheduled for ${formattedDate} at ${meetingTime}`,
+      });
+
+      // Add the new meeting to state
+      if (data && data.length > 0) {
+        const newMeeting: Meeting = {
+          id: data[0].id,
+          hr_id: data[0].hr_id,
+          employee_id: data[0].employee_id,
+          meeting_date: data[0].meeting_date,
+          meeting_time: data[0].meeting_time,
+          purpose: data[0].purpose,
+          status: data[0].status
+        };
+        
+        setMeetings([...meetings, newMeeting]);
+      }
+
+      // Reset form
+      setSelectedDate(undefined);
+      setMeetingTime("10:00");
+      setMeetingPurpose("");
+    } catch (error: any) {
+      console.error("Error scheduling meeting:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to schedule meeting",
+        variant: "destructive",
+      });
+    }
   };
 
   const setActiveTabAndNavigate = (tabValue: string) => {
     setActiveTab(tabValue);
+    // Safely find and click any relevant element
+    setTimeout(() => {
+      const tabElement = document.querySelector(`[value="${tabValue}"]`);
+      if (tabElement && tabElement instanceof HTMLElement) {
+        tabElement.click();
+      }
+    }, 0);
   };
 
   const renderDocumentsTabContent = () => {
@@ -395,6 +443,36 @@ const EmployeePortal = () => {
           </div>
         </CardContent>
       </Card>
+    );
+  };
+
+  const renderUpcomingMeetings = () => {
+    const upcomingMeetings = meetings.filter(m => m.status === 'scheduled');
+    return upcomingMeetings.length > 0 ? (
+      <div className="space-y-4">
+        {upcomingMeetings.map((meeting) => (
+          <div key={meeting.id} className="p-4 border rounded-md">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-semibold">{meeting.purpose}</h3>
+                <p className="text-sm text-gray-500">With {hrName}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {format(new Date(meeting.meeting_date), 'MMMM do, yyyy')}, {meeting.meeting_time}
+                </p>
+                <Badge className="mt-2">Video Meeting</Badge>
+              </div>
+              <Button variant="outline" size="sm">Join</Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="text-center p-6">
+        <h3 className="font-medium text-lg">No upcoming meetings</h3>
+        <p className="text-muted-foreground mt-1">
+          Schedule a meeting using the form
+        </p>
+      </div>
     );
   };
 
@@ -740,43 +818,7 @@ const EmployeePortal = () => {
                   <CardDescription>Your scheduled onboarding sessions</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="p-4 border rounded-md">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">Onboarding Introduction</h3>
-                          <p className="text-sm text-gray-500">With {hrName}</p>
-                          <p className="text-sm text-gray-500 mt-1">Tomorrow, 10:00 AM</p>
-                          <Badge className="mt-2">Google Meet</Badge>
-                        </div>
-                        <Button variant="outline" size="sm">Join</Button>
-                      </div>
-                    </div>
-                    
-                    <div className="p-4 border rounded-md">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">Team Introduction</h3>
-                          <p className="text-sm text-gray-500">With Team Lead</p>
-                          <p className="text-sm text-gray-500 mt-1">Next Week, Monday 2:00 PM</p>
-                          <Badge className="mt-2">Zoom</Badge>
-                        </div>
-                        <Button variant="outline" size="sm">Join</Button>
-                      </div>
-                    </div>
-                    
-                    <div className="p-4 border rounded-md">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">First Project Kickoff</h3>
-                          <p className="text-sm text-gray-500">With Project Team</p>
-                          <p className="text-sm text-gray-500 mt-1">June 10, 11:00 AM</p>
-                          <Badge className="mt-2">Microsoft Teams</Badge>
-                        </div>
-                        <Button variant="outline" size="sm">Join</Button>
-                      </div>
-                    </div>
-                  </div>
+                  {renderUpcomingMeetings()}
                 </CardContent>
               </Card>
             </div>

@@ -41,7 +41,14 @@ const Documents = () => {
         .eq('hr_id', user?.id);
         
       if (error) throw error;
-      setEmployees(data || []);
+      
+      // Cast the data to the Employee type to ensure it matches
+      const typedEmployees = data?.map(employee => ({
+        ...employee,
+        status: employee.status as "pending" | "active" | "completed"
+      })) || [];
+      
+      setEmployees(typedEmployees);
     } catch (error: any) {
       console.error("Error fetching employees:", error.message);
       toast({

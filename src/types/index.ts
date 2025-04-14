@@ -22,3 +22,15 @@ export interface Employee {
   created_at: string;
   temp_password?: string;
 }
+
+export interface Meeting {
+  id: string;
+  hr_id: string;
+  employee_id: string;
+  employee_name?: string;
+  meeting_date: string;
+  meeting_time: string;
+  purpose: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  created_at?: string;
+}

@@ -18,17 +18,7 @@ import { Calendar as CalendarIcon, Users, Clock, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import BackButton from "@/components/common/BackButton";
-
-interface Meeting {
-  id: string;
-  hr_id: string;
-  employee_id: string;
-  employee_name?: string;
-  meeting_date: string;
-  meeting_time: string;
-  purpose: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
-}
+import { Meeting } from "@/types";
 
 const Schedules = () => {
   const { user } = useAuth();
@@ -73,6 +63,7 @@ const Schedules = () => {
     try {
       setLoading(true);
       
+      // Use a raw query to fetch meetings since the table isn't in the generated types
       const { data, error } = await supabase
         .from('meetings')
         .select('*, employees(name)')
@@ -81,12 +72,19 @@ const Schedules = () => {
       if (error) throw error;
       
       // Format the meetings data
-      const formattedMeetings = data.map((meeting: any) => ({
-        ...meeting,
-        employee_name: meeting.employees?.name
+      const formattedMeetings: Meeting[] = (data || []).map((meeting: any) => ({
+        id: meeting.id,
+        hr_id: meeting.hr_id,
+        employee_id: meeting.employee_id,
+        employee_name: meeting.employees?.name,
+        meeting_date: meeting.meeting_date,
+        meeting_time: meeting.meeting_time,
+        purpose: meeting.purpose,
+        status: meeting.status as 'scheduled' | 'completed' | 'cancelled',
+        created_at: meeting.created_at
       }));
       
-      setMeetings(formattedMeetings || []);
+      setMeetings(formattedMeetings);
     } catch (error: any) {
       console.error("Error fetching meetings:", error.message);
       toast({
@@ -130,6 +128,7 @@ const Schedules = () => {
     setIsScheduling(true);
 
     try {
+      // Use a raw query to insert into meetings table
       const { data, error } = await supabase
         .from('meetings')
         .insert({
@@ -139,7 +138,7 @@ const Schedules = () => {
           meeting_time: meetingTime,
           purpose: meetingPurpose,
           status: 'scheduled'
-        })
+        } as any)
         .select();
 
       if (error) throw error;
@@ -151,13 +150,22 @@ const Schedules = () => {
         description: `Meeting with ${selectedEmployeeName} on ${format(selectedDate, "MMMM do, yyyy")} at ${meetingTime}`,
       });
 
-      // Add the new meeting to state
-      const newMeeting = {
-        ...data[0],
-        employee_name: selectedEmployeeName
-      };
-      
-      setMeetings([...meetings, newMeeting]);
+      // Add the new meeting to state with the correct type
+      if (data && data.length > 0) {
+        const newMeeting: Meeting = {
+          id: data[0].id,
+          hr_id: data[0].hr_id,
+          employee_id: data[0].employee_id,
+          employee_name: selectedEmployeeName,
+          meeting_date: data[0].meeting_date,
+          meeting_time: data[0].meeting_time,
+          purpose: data[0].purpose,
+          status: data[0].status,
+          created_at: data[0].created_at
+        };
+        
+        setMeetings([...meetings, newMeeting]);
+      }
 
       // Reset form
       setSelectedDate(undefined);
@@ -180,7 +188,7 @@ const Schedules = () => {
     try {
       const { error } = await supabase
         .from('meetings')
-        .update({ status })
+        .update({ status } as any)
         .eq('id', meetingId);
 
       if (error) throw error;
