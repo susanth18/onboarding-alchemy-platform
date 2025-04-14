@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 
 interface AuthContextType {
@@ -12,6 +12,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, userData: any) => Promise<void>;
   signOut: () => Promise<void>;
+  userRole: 'hr' | 'employee' | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,12 +21,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [userRole, setUserRole] = useState<'hr' | 'employee' | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        console.log("Auth state change event:", event);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -35,12 +39,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: "Welcome to HR Onboarding Portal",
           });
 
-          // We'll handle redirection in a separate effect to avoid Supabase deadlock issues
+          // Check user role in a separate function to avoid Supabase deadlock
+          if (session?.user) {
+            checkUserRole(session.user);
+          }
         } else if (event === 'SIGNED_OUT') {
           toast({
             title: "Signed out successfully",
             description: "You have been signed out",
           });
+          setUserRole(null);
           navigate('/auth');
         }
       }
@@ -50,52 +58,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setIsLoading(false);
+      
+      if (session?.user) {
+        checkUserRole(session.user);
+      } else {
+        setIsLoading(false);
+        // If no session and not on auth page, redirect to auth
+        if (location.pathname !== '/auth') {
+          navigate('/auth');
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
-  // Separate effect for redirection to avoid Supabase deadlock
-  useEffect(() => {
-    const checkUserRoleAndRedirect = async () => {
-      if (user && !isLoading) {
-        try {
-          // Check if user is an HR (has an hr_profile)
-          const { data: hrProfile } = await supabase
-            .from('hr_profiles')
-            .select('id')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          if (hrProfile) {
-            navigate('/'); // HR user goes to dashboard
-            return;
-          }
-          
-          // Check if user is an employee
-          const { data: employeeData } = await supabase
-            .from('employees')
-            .select('id')
-            .eq('email', user.email)
-            .maybeSingle();
-            
-          if (employeeData) {
-            navigate('/employee-portal'); // Employee goes to employee portal
-            return;
-          }
-          
-          // Default fallback - just redirect to home
-          navigate('/');
-        } catch (error) {
-          console.error('Error checking user role:', error);
+  const checkUserRole = async (user: User) => {
+    try {
+      console.log("Checking user role for:", user.email);
+      
+      // Check if user is an HR (has an hr_profile)
+      const { data: hrProfile, error: hrError } = await supabase
+        .from('hr_profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (hrProfile) {
+        console.log("User is HR manager");
+        setUserRole('hr');
+        
+        // Only redirect if not already on a valid HR path
+        if (location.pathname === '/auth' || location.pathname === '/employee-portal') {
           navigate('/');
         }
+        setIsLoading(false);
+        return;
       }
-    };
-    
-    checkUserRoleAndRedirect();
-  }, [user, isLoading, navigate]);
+      
+      // Check if user is an employee
+      const { data: employeeData, error: empError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle();
+        
+      if (employeeData) {
+        console.log("User is an employee");
+        setUserRole('employee');
+        
+        // Only redirect if not already on employee portal
+        if (location.pathname === '/auth' || !location.pathname.includes('/employee-portal')) {
+          navigate('/employee-portal');
+        }
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("User role not determined, using default");
+      // Default fallback for new users (assume HR for now)
+      setUserRole('hr');
+      if (location.pathname === '/auth') {
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -158,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, signIn, signUp, signOut, userRole }}>
       {children}
     </AuthContext.Provider>
   );

@@ -35,7 +35,7 @@ type MilestonePeriod = {
 
 const EmployeePortal = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, userRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hrName, setHrName] = useState("");
   const [employeeData, setEmployeeData] = useState<any>(null);
@@ -87,8 +87,15 @@ const EmployeePortal = () => {
       return;
     }
 
+    if (userRole !== 'employee') {
+      console.log("User is not an employee, redirecting to appropriate page");
+      navigate('/');
+      return;
+    }
+
     const loadEmployeeData = async () => {
       try {
+        console.log("Loading employee data for", user.email);
         // Get employee data
         const { data: employeeData, error: employeeError } = await supabase
           .from('employees')
@@ -96,8 +103,12 @@ const EmployeePortal = () => {
           .eq('email', user.email)
           .single();
 
-        if (employeeError) throw employeeError;
+        if (employeeError) {
+          console.error("Error fetching employee data:", employeeError);
+          throw employeeError;
+        }
         
+        console.log("Employee data loaded:", employeeData);
         setEmployeeData(employeeData);
         
         // Get HR info
@@ -108,8 +119,12 @@ const EmployeePortal = () => {
             .eq('id', employeeData.hr_id)
             .single();
             
-          if (hrError) throw hrError;
+          if (hrError) {
+            console.error("Error fetching HR data:", hrError);
+            throw hrError;
+          }
           
+          console.log("HR data loaded:", hrData);
           setHrName(hrData.name);
         }
         
@@ -119,6 +134,9 @@ const EmployeePortal = () => {
           contract_url: employeeData.contract_url,
           resume_url: employeeData.resume_url
         });
+
+        // In a real app, you would load milestones from Supabase
+        // For now, using the default state initialized above
       } catch (error: any) {
         console.error('Error loading employee data:', error);
         toast({
@@ -132,7 +150,7 @@ const EmployeePortal = () => {
     };
 
     loadEmployeeData();
-  }, [user, navigate]);
+  }, [user, navigate, userRole]);
 
   useEffect(() => {
     // Calculate completed tasks and total tasks
@@ -164,12 +182,27 @@ const EmployeePortal = () => {
       title: milestone.completed ? "Task completed" : "Task marked as incomplete",
       description: `"${milestone.text}" has been updated`,
     });
+
+    // Simulate saving to Supabase
+    console.log("Would save milestone update to Supabase:", {
+      employee_id: employeeData?.id,
+      milestone_id: milestone.id,
+      completed: milestone.completed,
+      notes: milestone.notes
+    });
   };
 
   const updateMilestoneNotes = (periodIndex: number, milestoneIndex: number, notes: string) => {
     const newMilestonePlan = [...milestonePlan];
     newMilestonePlan[periodIndex].milestones[milestoneIndex].notes = notes;
     setMilestonePlan(newMilestonePlan);
+
+    // Simulate saving to Supabase
+    console.log("Would save milestone notes to Supabase:", {
+      employee_id: employeeData?.id,
+      milestone_id: newMilestonePlan[periodIndex].milestones[milestoneIndex].id,
+      notes: notes
+    });
   };
 
   const scheduleMeeting = () => {
@@ -196,6 +229,15 @@ const EmployeePortal = () => {
     toast({
       title: "Meeting scheduled",
       description: `Your meeting has been scheduled for ${formattedDate} at ${meetingTime}`,
+    });
+
+    // Simulate saving to Supabase
+    console.log("Would save meeting to Supabase:", {
+      employee_id: employeeData?.id,
+      hr_id: employeeData?.hr_id,
+      date: selectedDate,
+      time: meetingTime,
+      purpose: meetingPurpose
     });
 
     // Reset form
@@ -231,13 +273,6 @@ const EmployeePortal = () => {
       </header>
 
       <main className="container mx-auto py-8 px-4">
-        <div className="mb-6">
-          <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-        </div>
-      
         <Card className="mb-6">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -343,7 +378,7 @@ const EmployeePortal = () => {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" size="sm" onClick={() => document.getElementById('documents-tab')?.click()} className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => document.querySelector('[data-value="documents"]')?.click()}>
                     View Documents
                   </Button>
                 </CardFooter>
@@ -385,7 +420,7 @@ const EmployeePortal = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" size="sm" onClick={() => document.getElementById('plan-tab')?.click()} className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => document.querySelector('[data-value="plan"]')?.click()}>
                     View Full Plan
                   </Button>
                 </CardFooter>
@@ -416,7 +451,7 @@ const EmployeePortal = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" size="sm" onClick={() => document.getElementById('meetings-tab')?.click()} className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => document.querySelector('[data-value="meetings"]')?.click()}>
                     Schedule Meeting
                   </Button>
                 </CardFooter>
@@ -424,7 +459,7 @@ const EmployeePortal = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="documents" id="documents-tab" className="space-y-4">
+          <TabsContent value="documents">
             <Card>
               <CardHeader>
                 <CardTitle>Your Documents</CardTitle>
@@ -538,7 +573,7 @@ const EmployeePortal = () => {
             </Card>
           </TabsContent>
           
-          <TabsContent value="plan" id="plan-tab" className="space-y-4">
+          <TabsContent value="plan">
             <Card>
               <CardHeader>
                 <CardTitle>Your 30-60-90 Day Plan</CardTitle>
@@ -596,7 +631,7 @@ const EmployeePortal = () => {
             </Card>
           </TabsContent>
           
-          <TabsContent value="meetings" id="meetings-tab" className="space-y-4">
+          <TabsContent value="meetings">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>

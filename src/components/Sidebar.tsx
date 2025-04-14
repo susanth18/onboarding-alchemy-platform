@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -31,6 +31,7 @@ interface SidebarItemProps {
   isActive?: boolean;
   badge?: number;
   onClick?: () => void;
+  to: string;
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({
@@ -39,6 +40,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
   isActive = false,
   badge,
   onClick,
+  to
 }) => (
   <li>
     <Button
@@ -48,14 +50,17 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
         isActive && "bg-sidebar-accent text-sidebar-foreground font-medium"
       )}
       onClick={onClick}
+      asChild
     >
-      <Icon size={20} />
-      <span className="flex-grow text-left">{label}</span>
-      {badge && (
-        <span className="bg-hr-blue text-white text-xs font-medium px-2 py-0.5 rounded-full">
-          {badge}
-        </span>
-      )}
+      <Link to={to}>
+        <Icon size={20} />
+        <span className="flex-grow text-left">{label}</span>
+        {badge && (
+          <span className="bg-hr-blue text-white text-xs font-medium px-2 py-0.5 rounded-full">
+            {badge}
+          </span>
+        )}
+      </Link>
     </Button>
   </li>
 );
@@ -68,10 +73,6 @@ const Sidebar = () => {
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
-  };
-
-  const handleItemClick = (path: string) => {
-    navigate(path);
   };
 
   return (
@@ -103,49 +104,57 @@ const Sidebar = () => {
             icon={LayoutDashboard}
             label={collapsed ? "" : "Dashboard"}
             isActive={isActive("/")}
-            onClick={() => handleItemClick("/")}
+            onClick={() => navigate("/")}
+            to="/"
           />
           <SidebarItem
             icon={Users}
             label={collapsed ? "" : "Employees"}
             isActive={isActive("/employees")}
-            onClick={() => handleItemClick("/employees")}
+            onClick={() => navigate("/employees")}
+            to="/employees"
           />
           <SidebarItem
             icon={FileText}
             label={collapsed ? "" : "Documents"}
             isActive={isActive("/documents")}
-            onClick={() => handleItemClick("/documents")}
+            onClick={() => navigate("/documents")}
+            to="/documents"
           />
           <SidebarItem
             icon={CheckSquare}
             label={collapsed ? "" : "30-60-90 Plans"}
             isActive={isActive("/plans")}
-            onClick={() => handleItemClick("/plans")}
+            onClick={() => navigate("/plans")}
+            to="/plans"
           />
           <SidebarItem
             icon={Calendar}
             label={collapsed ? "" : "Schedules"}
             isActive={isActive("/schedules")}
-            onClick={() => handleItemClick("/schedules")}
+            onClick={() => navigate("/schedules")}
+            to="/schedules"
           />
           <SidebarItem
             icon={MessageSquare}
             label={collapsed ? "" : "Messages"}
             isActive={isActive("/messages")}
-            onClick={() => handleItemClick("/messages")}
+            onClick={() => navigate("/messages")}
+            to="/messages"
           />
           <SidebarItem
             icon={BarChart}
             label={collapsed ? "" : "Analytics"}
             isActive={isActive("/analytics")}
-            onClick={() => handleItemClick("/analytics")}
+            onClick={() => navigate("/analytics")}
+            to="/analytics"
           />
           <SidebarItem
             icon={UserCircle}
             label={collapsed ? "" : "Profile"}
             isActive={isActive("/profile")}
-            onClick={() => handleItemClick("/profile")}
+            onClick={() => navigate("/profile")}
+            to="/profile"
           />
         </ul>
       </nav>
@@ -155,7 +164,8 @@ const Sidebar = () => {
           icon={Settings}
           label={collapsed ? "" : "Settings"}
           isActive={isActive("/settings")}
-          onClick={() => handleItemClick("/settings")}
+          onClick={() => navigate("/settings")}
+          to="/settings"
         />
         <Button
           variant="ghost"
