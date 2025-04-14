@@ -1,266 +1,384 @@
-
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Employee } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, FileText, Mail, Phone, User, Briefcase, Calendar, Key } from "lucide-react";
-import { format } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { FileText, Download, User, Mail, Phone, Briefcase, CheckCircle, XCircle, Loader2, Upload } from "lucide-react";
+import { generatePassword } from "@/lib/utils";
+import BackButton from "@/components/common/BackButton";
+import MeetingScheduler from "@/components/employees/MeetingScheduler";
 
-const EmployeeDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+const EmployeeDetails = () => {
   const { user } = useAuth();
-  const [employee, setEmployee] = useState<Employee | null>(null);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [employee, setEmployee] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [status, setStatus] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [role, setRole] = useState<string>("");
+
+  // New state for active tab
+  const [activeTab, setActiveTab] = useState("details");
 
   useEffect(() => {
-    const fetchEmployeeDetails = async () => {
-      if (!user || !id) return;
-      
-      setIsLoading(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('id', id)
-          .single();
-          
-        if (error) throw error;
-        
-        setEmployee(data as Employee);
-      } catch (error: any) {
-        toast({
-          title: "Error fetching employee details",
-          description: error.message,
-          variant: "destructive",
-        });
-        navigate('/employees');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchEmployeeDetails();
-  }, [user, id, navigate]);
+    if (!id) {
+      toast({
+        title: "Missing employee ID",
+        description: "Please select an employee to view details",
+        variant: "destructive",
+      });
+      navigate("/employees");
+      return;
+    }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge className="bg-yellow-50 text-yellow-600 border-yellow-200">Pending</Badge>;
-      case 'active':
-        return <Badge className="bg-green-50 text-green-600 border-green-200">Active</Badge>;
-      case 'completed':
-        return <Badge className="bg-blue-50 text-blue-600 border-blue-200">Completed</Badge>;
+    fetchEmployeeData(id);
+  }, [id, navigate]);
+
+  const fetchEmployeeData = async (employeeId: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', employeeId)
+        .single();
+
+      if (error) throw error;
+
+      setEmployee(data);
+      setStatus(data.status);
+      setEmail(data.email);
+      setPhone(data.phone || "");
+      setRole(data.role);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching employee details",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setStatus(newStatus);
+      setEmployee({ ...employee, status: newStatus });
+
+      toast({
+        title: "Status updated",
+        description: "Employee status has been successfully updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating status",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleUpdateEmployee = async () => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          email: email,
+          phone: phone,
+          role: role,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setEmployee({ ...employee, email: email, phone: phone, role: role });
+
+      toast({
+        title: "Employee updated",
+        description: "Employee details have been successfully updated",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating employee",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Render the appropriate tab content
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "details":
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Input
+                id="role"
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <div className="flex space-x-4">
+                <Button
+                  variant={status === "pending" ? "default" : "outline"}
+                  onClick={() => handleStatusChange("pending")}
+                  disabled={isUpdating}
+                >
+                  Pending
+                </Button>
+                <Button
+                  variant={status === "active" ? "default" : "outline"}
+                  onClick={() => handleStatusChange("active")}
+                  disabled={isUpdating}
+                >
+                  Active
+                </Button>
+                <Button
+                  variant={status === "completed" ? "default" : "outline"}
+                  onClick={() => handleStatusChange("completed")}
+                  disabled={isUpdating}
+                >
+                  Completed
+                </Button>
+              </div>
+            </div>
+            <Separator />
+            <Button onClick={handleUpdateEmployee} disabled={isUpdating}>
+              {isUpdating ? "Updating..." : "Update Employee"}
+            </Button>
+          </div>
+        );
+      case "documents":
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Job Description</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {employee?.job_description_url ? (
+                    <div className="flex flex-col space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Document is available. You can view or download it.
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={employee.job_description_url} target="_blank" rel="noopener noreferrer">
+                            <FileText className="h-4 w-4 mr-2" />
+                            View
+                          </a>
+                        </Button>
+                        <Button size="sm" asChild>
+                          <a href={employee.job_description_url} download>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No job description uploaded yet. Upload one from the Documents page.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Contract</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {employee?.contract_url ? (
+                    <div className="flex flex-col space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Document is available. You can view or download it.
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={employee.contract_url} target="_blank" rel="noopener noreferrer">
+                            <FileText className="h-4 w-4 mr-2" />
+                            View
+                          </a>
+                        </Button>
+                        <Button size="sm" asChild>
+                          <a href={employee.contract_url} download>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No contract uploaded yet. Upload one from the Documents page.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Resume</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {employee?.resume_url ? (
+                    <div className="flex flex-col space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Document is available. You can view or download it.
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={employee.resume_url} target="_blank" rel="noopener noreferrer">
+                            <FileText className="h-4 w-4 mr-2" />
+                            View
+                          </a>
+                        </Button>
+                        <Button size="sm" asChild>
+                          <a href={employee.resume_url} download>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No resume uploaded yet. Upload one from the Documents page.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="md:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upload Documents</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild className="w-full">
+                      <Link to="/documents">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Go to Documents Page
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        );
+      case "meetings":
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <MeetingScheduler 
+                employeeId={id as string} 
+                hrId={employee?.hr_id as string} 
+              />
+            </div>
+          </div>
+        );
       default:
-        return <Badge>{status}</Badge>;
+        return null;
     }
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 flex justify-center items-center h-screen">
-        <div className="animate-spin h-8 w-8 border-4 border-primary rounded-full border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  if (!employee) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold mb-2">Employee not found</h2>
-          <p className="text-gray-500 mb-4">The employee you're looking for doesn't exist or you don't have permission to view it.</p>
-          <Button onClick={() => navigate('/employees')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Employees
-          </Button>
-        </div>
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-6 flex items-center">
-        <Button variant="ghost" onClick={() => navigate('/employees')} className="mr-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <h1 className="text-2xl font-bold">Employee Details</h1>
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <BackButton to="/employees" label="Back to Employees" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Profile Information</span>
-                {getStatusBadge(employee.status)}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">Full Name</p>
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 text-gray-400 mr-2" />
-                    <p className="font-medium">{employee.name}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">Employee ID</p>
-                  <div className="flex items-center">
-                    <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
-                    <p className="font-medium">{employee.employee_id}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">Role</p>
-                  <div className="flex items-center">
-                    <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
-                    <p className="font-medium">{employee.role}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">Email</p>
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                    <p className="font-medium">{employee.email}</p>
-                  </div>
-                </div>
-                
-                {employee.phone && (
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                      <p className="font-medium">{employee.phone}</p>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">Added On</p>
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                    <p className="font-medium">
-                      {format(new Date(employee.created_at), 'PPP')}
-                    </p>
-                  </div>
-                </div>
-
-                {employee.temp_password && (
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Temporary Password</p>
-                    <div className="flex items-center">
-                      <Key className="h-4 w-4 text-gray-400 mr-2" />
-                      <p className="font-medium bg-gray-100 px-2 py-1 rounded">{employee.temp_password}</p>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      These credentials have been sent to the employee's email.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Documents</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                {employee.job_description_url ? (
-                  <div className="p-4 border rounded-md flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-500 mr-3" />
-                      <span>Job Description</span>
-                    </div>
-                    <a 
-                      href={employee.job_description_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Download className="h-4 w-4" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-4 border rounded-md flex items-center justify-between bg-gray-50">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                      <span className="text-gray-500">Job Description</span>
-                    </div>
-                    <span className="text-xs text-gray-400">Not uploaded</span>
-                  </div>
-                )}
-                
-                {employee.contract_url ? (
-                  <div className="p-4 border rounded-md flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-500 mr-3" />
-                      <span>Contract</span>
-                    </div>
-                    <a 
-                      href={employee.contract_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Download className="h-4 w-4" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-4 border rounded-md flex items-center justify-between bg-gray-50">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                      <span className="text-gray-500">Contract</span>
-                    </div>
-                    <span className="text-xs text-gray-400">Not uploaded</span>
-                  </div>
-                )}
-                
-                {employee.resume_url ? (
-                  <div className="p-4 border rounded-md flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-500 mr-3" />
-                      <span>Resume</span>
-                    </div>
-                    <a 
-                      href={employee.resume_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Download className="h-4 w-4" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-4 border rounded-md flex items-center justify-between bg-gray-50">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                      <span className="text-gray-500">Resume</span>
-                    </div>
-                    <span className="text-xs text-gray-400">Not uploaded</span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
+          <div className="space-y-1">
+            <CardTitle className="text-2xl">
+              {employee?.name || "Employee Details"}
+            </CardTitle>
+            <p className="text-muted-foreground">
+              ID: {employee?.employee_id || "N/A"}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="meetings">Meetings</TabsTrigger>
+            </TabsList>
+            <TabsContent value={activeTab}>
+              {renderTabContent()}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };

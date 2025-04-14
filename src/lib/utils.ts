@@ -36,3 +36,18 @@ export function generatePassword(length = 12) {
     .sort(() => Math.random() - 0.5)
     .join('');
 }
+
+export function formatMeetingTime(dateString: string, timeString: string) {
+  if (!dateString || !timeString) return "Not scheduled";
+  
+  const date = new Date(dateString);
+  const formattedDate = formatDate(date);
+  
+  // Convert time from 24-hour format to 12-hour format
+  const [hours, minutes] = timeString.split(':');
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  
+  return `${formattedDate} at ${hour12}:${minutes} ${ampm}`;
+}

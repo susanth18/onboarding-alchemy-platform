@@ -135,6 +135,21 @@ const EmployeePortal = () => {
           resume_url: employeeData.resume_url
         });
 
+        // Get scheduled meetings
+        const { data: meetingsData, error: meetingsError } = await supabase
+          .from('meetings')
+          .select('*')
+          .eq('employee_id', employeeData.id)
+          .order('meeting_date', { ascending: true });
+          
+        if (meetingsError) {
+          console.error("Error fetching meetings:", meetingsError);
+        } else {
+          // You can set the meetings to state here if needed
+          console.log("Meetings loaded:", meetingsData);
+          // Update your meetings display with this data
+        }
+
         // In a real app, you would load milestones from Supabase
         // For now, using the default state initialized above
       } catch (error: any) {
@@ -248,6 +263,139 @@ const EmployeePortal = () => {
 
   const setActiveTabAndNavigate = (tabValue: string) => {
     setActiveTab(tabValue);
+  };
+
+  const renderDocumentsTabContent = () => {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Your Documents</CardTitle>
+          <CardDescription>Access and download your onboarding documents</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <FileText className="h-5 w-5 text-primary mr-2" />
+                  Job Description
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Detailed overview of your role, responsibilities, and performance expectations.
+                </p>
+                {documents.job_description_url ? (
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" className="flex items-center" asChild>
+                      <a href={documents.job_description_url} target="_blank" rel="noopener noreferrer">
+                        <FileText className="h-4 w-4 mr-2" />
+                        View
+                      </a>
+                    </Button>
+                    <Button size="sm" className="flex items-center" asChild>
+                      <a href={documents.job_description_url} download>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Document not available yet. Please check back later.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <FileText className="h-5 w-5 text-primary mr-2" />
+                  Employment Contract
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Your employment agreement including terms and conditions.
+                </p>
+                {documents.contract_url ? (
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" className="flex items-center" asChild>
+                      <a href={documents.contract_url} target="_blank" rel="noopener noreferrer">
+                        <FileText className="h-4 w-4 mr-2" />
+                        View
+                      </a>
+                    </Button>
+                    <Button size="sm" className="flex items-center" asChild>
+                      <a href={documents.contract_url} download>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Document not available yet. Please check back later.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <FileText className="h-5 w-5 text-primary mr-2" />
+                  Resume
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Your submitted resume.
+                </p>
+                {documents.resume_url ? (
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" className="flex items-center" asChild>
+                      <a href={documents.resume_url} target="_blank" rel="noopener noreferrer">
+                        <FileText className="h-4 w-4 mr-2" />
+                        View
+                      </a>
+                    </Button>
+                    <Button size="sm" className="flex items-center" asChild>
+                      <a href={documents.resume_url} download>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Document not available yet. Please check back later.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <FileText className="h-5 w-5 text-primary mr-2" />
+                  Company Handbook
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Important company policies, culture, and guidelines.
+                </p>
+                <div className="text-sm text-muted-foreground">
+                  Document not available yet. Please check back later.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   if (loading) {
@@ -464,117 +612,7 @@ const EmployeePortal = () => {
           </TabsContent>
           
           <TabsContent value="documents">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Documents</CardTitle>
-                <CardDescription>Access and download your onboarding documents</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card className="border shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center">
-                        <FileText className="h-5 w-5 text-primary mr-2" />
-                        Job Description
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Detailed overview of your role, responsibilities, and performance expectations.
-                      </p>
-                      {documents.job_description_url ? (
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex items-center" asChild>
-                            <a href={documents.job_description_url} target="_blank" rel="noopener noreferrer">
-                              <FileText className="h-4 w-4 mr-2" />
-                              View
-                            </a>
-                          </Button>
-                          <Button size="sm" className="flex items-center" asChild>
-                            <a href={documents.job_description_url} download>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </a>
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">
-                          Document not available yet. Please check back later.
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="border shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center">
-                        <FileText className="h-5 w-5 text-primary mr-2" />
-                        Employment Contract
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Your employment agreement including terms and conditions.
-                      </p>
-                      {documents.contract_url ? (
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex items-center" asChild>
-                            <a href={documents.contract_url} target="_blank" rel="noopener noreferrer">
-                              <FileText className="h-4 w-4 mr-2" />
-                              View
-                            </a>
-                          </Button>
-                          <Button size="sm" className="flex items-center" asChild>
-                            <a href={documents.contract_url} download>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </a>
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">
-                          Document not available yet. Please check back later.
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="border shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center">
-                        <FileText className="h-5 w-5 text-primary mr-2" />
-                        Company Handbook
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Important company policies, culture, and guidelines.
-                      </p>
-                      <div className="text-sm text-muted-foreground">
-                        Document not available yet. Please check back later.
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="border shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center">
-                        <FileText className="h-5 w-5 text-primary mr-2" />
-                        Benefit Enrollment
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Health, retirement, and other company benefits information.
-                      </p>
-                      <div className="text-sm text-muted-foreground">
-                        Document not available yet. Please check back later.
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
+            {renderDocumentsTabContent()}
           </TabsContent>
           
           <TabsContent value="plan">
