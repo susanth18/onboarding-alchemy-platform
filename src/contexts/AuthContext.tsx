@@ -41,7 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Check user role in a separate function to avoid Supabase deadlock
           if (session?.user) {
-            checkUserRole(session.user);
+            setTimeout(() => {
+              checkUserRole(session.user);
+            }, 0);
           }
         } else if (event === 'SIGNED_OUT') {
           toast({
@@ -76,6 +78,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkUserRole = async (user: User) => {
     try {
       console.log("Checking user role for:", user.email);
+      
+      // First check the user_metadata as it's the fastest way to determine role
+      if (user.user_metadata && user.user_metadata.role === 'employee') {
+        console.log("User is an employee (from metadata)");
+        setUserRole('employee');
+        
+        // Only redirect if not already on employee portal
+        if (location.pathname === '/auth' || !location.pathname.includes('/employee-portal')) {
+          navigate('/employee-portal');
+        }
+        setIsLoading(false);
+        return;
+      }
       
       // Check if user is an HR (has an hr_profile)
       const { data: hrProfile, error: hrError } = await supabase

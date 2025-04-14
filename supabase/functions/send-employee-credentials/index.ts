@@ -19,8 +19,14 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing Supabase environment variables");
+    }
+    
     // Create a Supabase client with the service role key
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    console.log(`Creating user account for employee ${employee_name} (${employee_email})`);
     
     // Create a user account for the employee with their email and a temporary password
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -38,6 +44,8 @@ serve(async (req) => {
       throw authError;
     }
 
+    console.log("User account created successfully:", authData.user.id);
+
     // In a production environment, you would use a proper email service like Resend.com
     console.log(`
       ----------------------------------------------------
@@ -54,7 +62,7 @@ serve(async (req) => {
       Email: ${employee_email}
       Temporary Password: ${temporary_password}
       
-      Please log in at ${supabaseUrl.replace(".supabase.co", ".app")} and complete your onboarding process.
+      Please log in at ${new URL(supabaseUrl).origin.replace(".supabase.co", "")} and complete your onboarding process.
       
       You will be required to change your password on first login.
       
@@ -62,16 +70,6 @@ serve(async (req) => {
       HR Department
       ----------------------------------------------------
     `);
-
-    // In a real implementation, you would send an actual email here
-    // Example:
-    // const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-    // await resend.emails.send({
-    //   from: "hr@company.com",
-    //   to: employee_email,
-    //   subject: "Your Onboarding Portal Credentials",
-    //   html: `<p>Hello ${employee_name},</p>...`
-    // });
 
     return new Response(
       JSON.stringify({ 
