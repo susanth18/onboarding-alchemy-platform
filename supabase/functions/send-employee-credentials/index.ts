@@ -40,6 +40,7 @@ serve(async (req) => {
 
     // Send a simple email notification with credentials
     // In a production environment, you would use a proper email service like SendGrid, Resend, etc.
+    // This is a simulation of sending an email
     console.log(`
       Email would be sent to: ${employee_email}
       Subject: Your Onboarding Portal Credentials

@@ -25,15 +25,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
         if (event === 'SIGNED_IN') {
           toast({
             title: "Signed in successfully",
-            description: "Welcome back to HR Onboarding Portal",
+            description: "Welcome to HR Onboarding Portal",
           });
+
+          // Determine user role and redirect accordingly
+          if (session?.user) {
+            try {
+              // Check if user is an HR (has an hr_profile)
+              const { data: hrProfile } = await supabase
+                .from('hr_profiles')
+                .select('id')
+                .eq('id', session.user.id)
+                .maybeSingle();
+              
+              if (hrProfile) {
+                navigate('/'); // HR user goes to dashboard
+                return;
+              }
+              
+              // Check if user is an employee
+              const { data: employeeData } = await supabase
+                .from('employees')
+                .select('id')
+                .eq('email', session.user.email)
+                .maybeSingle();
+                
+              if (employeeData) {
+                navigate('/employee-portal'); // Employee goes to employee portal
+                return;
+              }
+              
+              // Default fallback - just redirect to home
+              navigate('/');
+            } catch (error) {
+              console.error('Error checking user role:', error);
+              navigate('/');
+            }
+          }
         } else if (event === 'SIGNED_OUT') {
           toast({
             title: "Signed out successfully",
@@ -58,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate('/');
+      // The redirect will be handled by the onAuthStateChange listener
     } catch (error: any) {
       toast({
         title: "Error signing in",

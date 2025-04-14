@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { FileText, CalendarCheck, Users, CheckSquare } from "lucide-react";
+import { FileText, CalendarCheck, Users, CheckSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -107,6 +107,13 @@ const EmployeePortal = () => {
       </header>
 
       <main className="container mx-auto py-8 px-4">
+        <div className="mb-6">
+          <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </div>
+      
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Welcome to your Onboarding Portal</CardTitle>
