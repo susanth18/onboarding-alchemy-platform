@@ -261,7 +261,7 @@ const EmployeePortal = () => {
           meeting_date: selectedDate.toISOString(),
           meeting_time: meetingTime,
           purpose: meetingPurpose,
-          status: 'scheduled' as 'scheduled'
+          status: 'scheduled' as const
         })
         .select();
 
