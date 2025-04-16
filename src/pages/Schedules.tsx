@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,7 +62,6 @@ const Schedules = () => {
     try {
       setLoading(true);
       
-      // Use a string literal for the table name
       const { data, error } = await supabase
         .from('meetings')
         .select('*, employees(name)')
@@ -71,7 +69,6 @@ const Schedules = () => {
         
       if (error) throw error;
       
-      // Format the meetings data
       if (data) {
         const formattedMeetings: Meeting[] = data.map((meeting: any) => ({
           id: meeting.id,
@@ -130,7 +127,6 @@ const Schedules = () => {
     setIsScheduling(true);
 
     try {
-      // Use a string literal for the table name
       const { data, error } = await supabase
         .from('meetings')
         .insert({
@@ -152,7 +148,6 @@ const Schedules = () => {
         description: `Meeting with ${selectedEmployeeName} on ${format(selectedDate, "MMMM do, yyyy")} at ${meetingTime}`,
       });
 
-      // Add the new meeting to state with the correct type
       if (data && data.length > 0) {
         const newMeeting: Meeting = {
           id: data[0].id,
@@ -169,7 +164,6 @@ const Schedules = () => {
         setMeetings([...meetings, newMeeting]);
       }
 
-      // Reset form
       setSelectedDate(undefined);
       setMeetingTime("10:00");
       setMeetingPurpose("");
@@ -188,7 +182,6 @@ const Schedules = () => {
 
   const updateMeetingStatus = async (meetingId: string, status: 'completed' | 'cancelled') => {
     try {
-      // Use a string literal for the table name
       const { error } = await supabase
         .from('meetings')
         .update({ status })
@@ -196,7 +189,6 @@ const Schedules = () => {
 
       if (error) throw error;
 
-      // Update local state
       setMeetings(meetings.map(meeting => 
         meeting.id === meetingId 
           ? { ...meeting, status } 
