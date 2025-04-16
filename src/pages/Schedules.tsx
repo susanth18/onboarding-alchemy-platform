@@ -63,7 +63,7 @@ const Schedules = () => {
     try {
       setLoading(true);
       
-      // Use a raw query to fetch meetings since the table isn't in the generated types
+      // Use a string literal for the table name
       const { data, error } = await supabase
         .from('meetings')
         .select('*, employees(name)')
@@ -72,19 +72,21 @@ const Schedules = () => {
       if (error) throw error;
       
       // Format the meetings data
-      const formattedMeetings: Meeting[] = (data || []).map((meeting: any) => ({
-        id: meeting.id,
-        hr_id: meeting.hr_id,
-        employee_id: meeting.employee_id,
-        employee_name: meeting.employees?.name,
-        meeting_date: meeting.meeting_date,
-        meeting_time: meeting.meeting_time,
-        purpose: meeting.purpose,
-        status: meeting.status as 'scheduled' | 'completed' | 'cancelled',
-        created_at: meeting.created_at
-      }));
-      
-      setMeetings(formattedMeetings);
+      if (data) {
+        const formattedMeetings: Meeting[] = data.map((meeting: any) => ({
+          id: meeting.id,
+          hr_id: meeting.hr_id,
+          employee_id: meeting.employee_id,
+          employee_name: meeting.employees?.name,
+          meeting_date: meeting.meeting_date,
+          meeting_time: meeting.meeting_time,
+          purpose: meeting.purpose,
+          status: meeting.status as 'scheduled' | 'completed' | 'cancelled',
+          created_at: meeting.created_at
+        }));
+        
+        setMeetings(formattedMeetings);
+      }
     } catch (error: any) {
       console.error("Error fetching meetings:", error.message);
       toast({
@@ -128,7 +130,7 @@ const Schedules = () => {
     setIsScheduling(true);
 
     try {
-      // Use a raw query to insert into meetings table
+      // Use a string literal for the table name
       const { data, error } = await supabase
         .from('meetings')
         .insert({
@@ -138,7 +140,7 @@ const Schedules = () => {
           meeting_time: meetingTime,
           purpose: meetingPurpose,
           status: 'scheduled'
-        } as any)
+        })
         .select();
 
       if (error) throw error;
@@ -186,9 +188,10 @@ const Schedules = () => {
 
   const updateMeetingStatus = async (meetingId: string, status: 'completed' | 'cancelled') => {
     try {
+      // Use a string literal for the table name
       const { error } = await supabase
         .from('meetings')
-        .update({ status } as any)
+        .update({ status })
         .eq('id', meetingId);
 
       if (error) throw error;

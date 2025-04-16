@@ -89,6 +89,54 @@ export type Database = {
         }
         Relationships: []
       }
+      meetings: {
+        Row: {
+          created_at: string
+          employee_id: string
+          hr_id: string
+          id: string
+          meeting_date: string
+          meeting_time: string
+          purpose: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          hr_id: string
+          id?: string
+          meeting_date: string
+          meeting_time: string
+          purpose: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          hr_id?: string
+          id?: string
+          meeting_date?: string
+          meeting_time?: string
+          purpose?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_hr_id_fkey"
+            columns: ["hr_id"]
+            isOneToOne: false
+            referencedRelation: "hr_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

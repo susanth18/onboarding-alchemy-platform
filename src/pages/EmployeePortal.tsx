@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,28 +138,30 @@ const EmployeePortal = () => {
           resume_url: employeeData.resume_url
         });
 
-        // Get scheduled meetings
+        // Get scheduled meetings - use a string to specify the table name
         const { data: meetingsData, error: meetingsError } = await supabase
           .from('meetings')
           .select('*')
-          .eq('employee_id', employeeData.id) as { data: any[]; error: any };
+          .eq('employee_id', employeeData.id);
           
         if (meetingsError) {
           console.error("Error fetching meetings:", meetingsError);
         } else {
           console.log("Meetings loaded:", meetingsData);
           // Format and set the meetings data
-          const formattedMeetings: Meeting[] = (meetingsData || []).map((meeting) => ({
-            id: meeting.id,
-            hr_id: meeting.hr_id,
-            employee_id: meeting.employee_id,
-            meeting_date: meeting.meeting_date,
-            meeting_time: meeting.meeting_time,
-            purpose: meeting.purpose,
-            status: meeting.status as 'scheduled' | 'completed' | 'cancelled'
-          }));
-          
-          setMeetings(formattedMeetings);
+          if (meetingsData) {
+            const formattedMeetings: Meeting[] = meetingsData.map((meeting) => ({
+              id: meeting.id,
+              hr_id: meeting.hr_id,
+              employee_id: meeting.employee_id,
+              meeting_date: meeting.meeting_date,
+              meeting_time: meeting.meeting_time,
+              purpose: meeting.purpose,
+              status: meeting.status as 'scheduled' | 'completed' | 'cancelled'
+            }));
+            
+            setMeetings(formattedMeetings);
+          }
         }
 
         // In a real app, you would load milestones from Supabase
@@ -251,7 +254,7 @@ const EmployeePortal = () => {
     }
 
     try {
-      // Insert meeting into Supabase
+      // Insert meeting into Supabase - use a string to specify the table name
       const { data, error } = await supabase
         .from('meetings')
         .insert({
@@ -261,7 +264,7 @@ const EmployeePortal = () => {
           meeting_time: meetingTime,
           purpose: meetingPurpose,
           status: 'scheduled'
-        } as any)
+        })
         .select();
 
       if (error) throw error;
