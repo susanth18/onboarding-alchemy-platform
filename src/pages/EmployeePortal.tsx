@@ -253,7 +253,6 @@ const EmployeePortal = () => {
     }
 
     try {
-      // Insert meeting into Supabase - use a string to specify the table name
       const { data, error } = await supabase
         .from('meetings')
         .insert({
@@ -262,7 +261,7 @@ const EmployeePortal = () => {
           meeting_date: selectedDate.toISOString(),
           meeting_time: meetingTime,
           purpose: meetingPurpose,
-          status: 'scheduled'
+          status: 'scheduled' as 'scheduled'
         })
         .select();
 

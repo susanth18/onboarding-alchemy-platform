@@ -135,7 +135,7 @@ const Schedules = () => {
           meeting_date: selectedDate.toISOString(),
           meeting_time: meetingTime,
           purpose: meetingPurpose,
-          status: 'scheduled'
+          status: 'scheduled' as 'scheduled'
         })
         .select();
 
