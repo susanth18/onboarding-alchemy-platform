@@ -98,7 +98,6 @@ const EmployeePortal = () => {
     const loadEmployeeData = async () => {
       try {
         console.log("Loading employee data for", user.email);
-        // Get employee data
         const { data: employeeData, error: employeeError } = await supabase
           .from('employees')
           .select('*, hr_id')
@@ -113,7 +112,6 @@ const EmployeePortal = () => {
         console.log("Employee data loaded:", employeeData);
         setEmployeeData(employeeData);
         
-        // Get HR info
         if (employeeData.hr_id) {
           const { data: hrData, error: hrError } = await supabase
             .from('hr_profiles')
@@ -130,14 +128,12 @@ const EmployeePortal = () => {
           setHrName(hrData.name);
         }
         
-        // Set document URLs
         setDocuments({
           job_description_url: employeeData.job_description_url,
           contract_url: employeeData.contract_url,
           resume_url: employeeData.resume_url
         });
 
-        // Get scheduled meetings - use a string to specify the table name
         const { data: meetingsData, error: meetingsError } = await supabase
           .from('meetings')
           .select('*')
@@ -147,7 +143,6 @@ const EmployeePortal = () => {
           console.error("Error fetching meetings:", meetingsError);
         } else {
           console.log("Meetings loaded:", meetingsData);
-          // Format and set the meetings data
           if (meetingsData) {
             const formattedMeetings: Meeting[] = meetingsData.map((meeting) => ({
               id: meeting.id,
@@ -162,9 +157,6 @@ const EmployeePortal = () => {
             setMeetings(formattedMeetings);
           }
         }
-
-        // In a real app, you would load milestones from Supabase
-        // For now, using the default state initialized above
       } catch (error: any) {
         console.error('Error loading employee data:', error);
         toast({
@@ -181,7 +173,6 @@ const EmployeePortal = () => {
   }, [user, navigate, userRole]);
 
   useEffect(() => {
-    // Calculate completed tasks and total tasks
     let completed = 0;
     let total = 0;
 
@@ -205,13 +196,11 @@ const EmployeePortal = () => {
     
     setMilestonePlan(newMilestonePlan);
     
-    // In a real app, you would save this to the database
     toast({
       title: milestone.completed ? "Task completed" : "Task marked as incomplete",
-      description: `"${milestone.text}" has been updated`,
+      description: `"${milestone.text}" has been updated",
     });
 
-    // Simulate saving to Supabase
     console.log("Would save milestone update to Supabase:", {
       employee_id: employeeData?.id,
       milestone_id: milestone.id,
@@ -225,7 +214,6 @@ const EmployeePortal = () => {
     newMilestonePlan[periodIndex].milestones[milestoneIndex].notes = notes;
     setMilestonePlan(newMilestonePlan);
 
-    // Simulate saving to Supabase
     console.log("Would save milestone notes to Supabase:", {
       employee_id: employeeData?.id,
       milestone_id: newMilestonePlan[periodIndex].milestones[milestoneIndex].id,
@@ -274,7 +262,6 @@ const EmployeePortal = () => {
         description: `Your meeting has been scheduled for ${formattedDate} at ${meetingTime}`,
       });
 
-      // Add the new meeting to state
       if (data && data.length > 0) {
         const newMeeting: Meeting = {
           id: data[0].id,
@@ -283,13 +270,12 @@ const EmployeePortal = () => {
           meeting_date: data[0].meeting_date,
           meeting_time: data[0].meeting_time,
           purpose: data[0].purpose,
-          status: data[0].status
+          status: data[0].status as 'scheduled' | 'completed' | 'cancelled'
         };
         
         setMeetings([...meetings, newMeeting]);
       }
 
-      // Reset form
       setSelectedDate(undefined);
       setMeetingTime("10:00");
       setMeetingPurpose("");
@@ -305,7 +291,6 @@ const EmployeePortal = () => {
 
   const setActiveTabAndNavigate = (tabValue: string) => {
     setActiveTab(tabValue);
-    // Safely find and click any relevant element
     setTimeout(() => {
       const tabElement = document.querySelector(`[value="${tabValue}"]`);
       if (tabElement && tabElement instanceof HTMLElement) {

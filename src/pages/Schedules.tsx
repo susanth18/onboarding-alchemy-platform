@@ -157,7 +157,7 @@ const Schedules = () => {
           meeting_date: data[0].meeting_date,
           meeting_time: data[0].meeting_time,
           purpose: data[0].purpose,
-          status: data[0].status,
+          status: data[0].status as 'scheduled' | 'completed' | 'cancelled',
           created_at: data[0].created_at
         };
         
