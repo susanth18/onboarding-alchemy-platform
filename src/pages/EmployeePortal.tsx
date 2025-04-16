@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -198,7 +199,7 @@ const EmployeePortal = () => {
     
     toast({
       title: milestone.completed ? "Task completed" : "Task marked as incomplete",
-      description: `"${milestone.text}" has been updated",
+      description: `"${milestone.text}" has been updated`
     });
 
     console.log("Would save milestone update to Supabase:", {
@@ -259,7 +260,7 @@ const EmployeePortal = () => {
       
       toast({
         title: "Meeting scheduled",
-        description: `Your meeting has been scheduled for ${formattedDate} at ${meetingTime}`,
+        description: `Your meeting has been scheduled for ${formattedDate} at ${meetingTime}`
       });
 
       if (data && data.length > 0) {
