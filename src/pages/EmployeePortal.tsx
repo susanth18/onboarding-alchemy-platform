@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { FileText, CalendarCheck, Users, CheckSquare, ArrowLeft, Download, User, Calendar } from "lucide-react";
+import { FileText, CalendarCheck, Users, CheckSquare, ArrowLeft, Download, User, Calendar, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -99,34 +99,47 @@ const EmployeePortal = () => {
     const loadEmployeeData = async () => {
       try {
         console.log("Loading employee data for", user.email);
+        
+        // Changed from single() to maybeSingle() to prevent errors when no rows are found
         const { data: employeeData, error: employeeError } = await supabase
           .from('employees')
           .select('*, hr_id')
           .eq('email', user.email)
-          .single();
+          .maybeSingle();
 
         if (employeeError) {
           console.error("Error fetching employee data:", employeeError);
           throw employeeError;
         }
         
+        if (!employeeData) {
+          console.error("No employee record found for this user");
+          toast({
+            title: "Account Not Found",
+            description: "No employee profile found for your account. Please contact HR.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
         console.log("Employee data loaded:", employeeData);
         setEmployeeData(employeeData);
         
         if (employeeData.hr_id) {
+          // Changed from single() to maybeSingle() to prevent errors
           const { data: hrData, error: hrError } = await supabase
             .from('hr_profiles')
             .select('name')
             .eq('id', employeeData.hr_id)
-            .single();
+            .maybeSingle();
             
           if (hrError) {
             console.error("Error fetching HR data:", hrError);
-            throw hrError;
+          } else if (hrData) {
+            console.log("HR data loaded:", hrData);
+            setHrName(hrData.name);
           }
-          
-          console.log("HR data loaded:", hrData);
-          setHrName(hrData.name);
         }
         
         setDocuments({
@@ -135,6 +148,7 @@ const EmployeePortal = () => {
           resume_url: employeeData.resume_url
         });
 
+        // Directly get meetings with employee's UUID
         const { data: meetingsData, error: meetingsError } = await supabase
           .from('meetings')
           .select('*')
@@ -162,7 +176,7 @@ const EmployeePortal = () => {
         console.error('Error loading employee data:', error);
         toast({
           title: "Error",
-          description: "Failed to load your profile data",
+          description: "Failed to load your profile data. Please try again later.",
           variant: "destructive",
         });
       } finally {
@@ -479,10 +493,11 @@ const EmployeePortal = () => {
           <div className="flex items-center gap-4">
             <span>{user?.email}</span>
             <Button 
-              variant="outline" 
+              variant="secondary" 
               onClick={() => signOut()}
-              className="text-white border-white hover:bg-white hover:text-sidebar-foreground"
+              className="bg-white text-sidebar hover:bg-gray-100"
             >
+              <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </Button>
           </div>

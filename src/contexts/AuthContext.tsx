@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
@@ -84,6 +83,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log("User is an employee (from metadata)");
         setUserRole('employee');
         
+        // Check if employee exists in database
+        const { data: employeeData } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle();
+          
         // Only redirect if not already on employee portal
         if (location.pathname === '/auth' || !location.pathname.includes('/employee-portal')) {
           navigate('/employee-portal');
