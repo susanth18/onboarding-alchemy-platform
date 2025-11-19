@@ -9,10 +9,12 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Employees from "./pages/Employees";
 import EmployeeDetails from "./pages/EmployeeDetails";
+import TeamDetails from "./pages/TeamDetails";
 import Profile from "./pages/Profile";
 import EmployeePortal from "./pages/EmployeePortal";
 import Documents from "./pages/Documents";
 import Schedules from "./pages/Schedules";
+import Teams from "./pages/Teams";
 import { AuthProvider } from "./contexts/AuthContext";
 import React from "react";
 
@@ -37,11 +39,13 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/employees" element={<Employees />} />
               <Route path="/employees/:id" element={<EmployeeDetails />} />
+              <Route path="/teams/:id" element={<TeamDetails />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/employee-portal" element={<EmployeePortal />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/plans" element={<Plans />} />
               <Route path="/schedules" element={<Schedules />} />
+              <Route path="/teams" element={<Teams />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/settings" element={<Settings />} />
