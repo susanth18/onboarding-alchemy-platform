@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
-  Users, 
+  Users,
+  Building,
   FileText, 
   Calendar, 
   CheckSquare, 
@@ -113,6 +114,13 @@ const Sidebar = () => {
             isActive={isActive("/employees")}
             onClick={() => navigate("/employees")}
             to="/employees"
+          />
+          <SidebarItem
+            icon={Building}
+            label={collapsed ? "" : "Teams"}
+            isActive={isActive("/teams")}
+            onClick={() => navigate("/teams")}
+            to="/teams"
           />
           <SidebarItem
             icon={FileText}

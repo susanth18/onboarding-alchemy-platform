@@ -14,6 +14,10 @@ import { FileText, Download, User, Mail, Phone, Briefcase, CheckCircle, XCircle,
 import { generatePassword } from "@/lib/utils";
 import BackButton from "@/components/common/BackButton";
 import MeetingScheduler from "@/components/employees/MeetingScheduler";
+import PlanList from "@/components/plans/PlanList";
+import AddPlanForm from "@/components/plans/AddPlanForm";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { PlusCircle } from "lucide-react";
 
 const EmployeeDetails = () => {
   const { user } = useAuth();
@@ -329,6 +333,30 @@ const EmployeeDetails = () => {
             </div>
           </div>
         );
+      case "plans":
+        return (
+          <div>
+            <div className="flex justify-end mb-4">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Create New Plan
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>New 30-60-90 Day Plan</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-6">
+                    <AddPlanForm employeeId={id!} onSuccess={() => fetchEmployeeData(id!)} />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+            <PlanList employeeId={id!} />
+          </div>
+        );
       default:
         return null;
     }
@@ -372,6 +400,7 @@ const EmployeeDetails = () => {
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="meetings">Meetings</TabsTrigger>
+              <TabsTrigger value="plans">30-60-90 Plans</TabsTrigger>
             </TabsList>
             <TabsContent value={activeTab}>
               {renderTabContent()}
