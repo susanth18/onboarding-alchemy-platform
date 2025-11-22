@@ -1,0 +1,124 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Models
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   // "HR" or "EMPLOYEE"
+  company   String?
+  position  String?
+  settings  String?  // JSON string for settings
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  employeesManaged Employee[] @relation("HrManager")
+  employeeProfile  Employee?  @relation("UserProfile") // If user is an employee
+
+  sentMessages     Message[]  @relation("Sender")
+  receivedMessages Message[]  @relation("Receiver")
+}
+
+model Employee {
+  id              String   @id @default(uuid())
+  employeeId      String   // The custom ID (e.g., EMP-001)
+  name            String
+  email           String   @unique
+  phone           String?
+  role            String
+  status          String   @default("pending") // pending, active, completed
+  startDate       DateTime?
+
+  // Legacy URL fields (can be kept or migrated to Document model)
+  jobDescriptionUrl String?
+  contractUrl       String?
+  resumeUrl         String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  hrId            String
+  hr              User     @relation("HrManager", fields: [hrId], references: [id])
+
+  userId          String?  @unique // Link to the Auth User if they have logged in
+  user            User?    @relation("UserProfile", fields: [userId], references: [id])
+
+  milestones      Milestone[]
+  hrTasks         HrTask[]
+  meetings        Meeting[]
+  documents       Document[]
+}
+
+model Document {
+  id          Int      @id @default(autoincrement())
+  type        String   // "job_description", "contract", "resume", "other"
+  filename    String
+  path        String
+  createdAt   DateTime @default(now())
+
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Milestone {
+  id          Int      @id @default(autoincrement())
+  title       String
+  category    String   // "First 30 Days", etc.
+  completed   Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model HrTask {
+  id          Int      @id @default(autoincrement())
+  title       String
+  category    String   // "IT", "HR", etc.
+  status      String   @default("pending")
+  priority    String   @default("medium")
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Meeting {
+  id          String   @id @default(uuid())
+  purpose     String
+  date        DateTime // Combines date and time
+  status      String   @default("scheduled")
+  createdAt   DateTime @default(now())
+
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  hrId        String
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  content     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  senderId    String
+  sender      User     @relation("Sender", fields: [senderId], references: [id])
+
+  receiverId  String
+  receiver    User     @relation("Receiver", fields: [receiverId], references: [id])
+}
