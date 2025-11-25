@@ -1,17 +1,43 @@
 {
-  "name": "hr-portal-workspace",
+  "name": "onboarding-alchemy-platform",
   "version": "1.0.0",
-  "description": "",
-  "scripts": {
-    "dev": "npm run dev --prefix client",
-    "start:server": "npm run start --prefix server",
-    "build:client": "npm run build --prefix client"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "description": "HR Onboarding Platform - Full Stack Application",
+  "private": true,
   "workspaces": [
     "client",
     "server"
-  ]
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "npm run build --workspace=client",
+    "build:server": "npm run build --workspace=server",
+    "start": "npm run start --workspace=server",
+    "start:client": "npm run preview --workspace=client",
+    "lint": "npm run lint --workspace=client",
+    "db:migrate": "npm run db:migrate --workspace=server",
+    "db:seed": "npm run db:seed --workspace=server",
+    "db:studio": "npm run db:studio --workspace=server",
+    "clean": "rm -rf node_modules client/node_modules server/node_modules client/dist server/dist",
+    "install:all": "npm install && npm install --workspace=client && npm install --workspace=server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "hr",
+    "onboarding",
+    "employee-management",
+    "react",
+    "express",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC"
 }

@@ -1,20 +1,19 @@
 
-import { OpenAIClient, AzureKeyCredential } from "@azure/openai";
-
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "";
 const apiKey = process.env.AZURE_OPENAI_API_KEY || "";
 const deploymentId = process.env.AZURE_OPENAI_DEPLOYMENT_ID || "gpt-35-turbo";
 
-let client: OpenAIClient | null = null;
+let client: any | null = null;
 
 try {
     if (endpoint && apiKey) {
+        const { OpenAIClient, AzureKeyCredential } = require("@azure/openai");
         client = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
     } else {
         console.warn("Azure OpenAI credentials not found. AI features will use fallback logic.");
     }
 } catch (error) {
-    console.error("Error initializing OpenAI client:", error);
+    console.warn("Azure OpenAI client not available. AI features will use fallback logic.");
 }
 
 export const getCompletion = async (prompt: string, systemMessage: string = "You are a helpful HR Assistant."): Promise<string | null> => {

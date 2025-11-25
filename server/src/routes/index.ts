@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { login, register } from '../controllers/authController';
-import { getEmployees, getEmployeeById, createEmployee, updateEmployee } from '../controllers/employeeController';
+import { getEmployees, getEmployeeById, createEmployee, updateEmployee, getMyProfile } from '../controllers/employeeController';
 import { getTasks, createTask, updateTask, deleteTask } from '../controllers/taskController';
 import { getMilestones, assignPlan, updateMilestone } from '../controllers/planController';
 import { getMessages, sendMessage } from '../controllers/messageController';

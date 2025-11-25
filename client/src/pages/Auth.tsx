@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -40,43 +39,9 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkUserRole = async () => {
-      if (user) {
-        try {
-          // Check if user is an HR (has an hr_profile)
-          const { data: hrProfile, error: hrError } = await supabase
-            .from('hr_profiles')
-            .select('id')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          if (!hrError && hrProfile) {
-            navigate('/'); // HR user goes to dashboard
-            return;
-          }
-          
-          // Check if user is an employee
-          const { data: employeeData, error: empError } = await supabase
-            .from('employees')
-            .select('id')
-            .eq('email', user.email)
-            .maybeSingle();
-            
-          if (!empError && employeeData) {
-            navigate('/employee-portal'); // Employee goes to employee portal
-            return;
-          }
-          
-          // Default fallback - just redirect to home
-          navigate('/');
-        } catch (error) {
-          console.error('Error checking user role:', error);
-          navigate('/');
-        }
-      }
-    };
-    
-    checkUserRole();
+    if (user) {
+      navigate('/');
+    }
   }, [user, navigate]);
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
@@ -145,15 +110,9 @@ const Auth = () => {
   const onForgotPasswordSubmit = async (values: z.infer<typeof forgotPasswordSchema>) => {
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${window.location.origin}/auth?tab=reset-password`,
-      });
-      
-      if (error) throw error;
-      
       toast({
-        title: "Reset email sent",
-        description: "Please check your email for password reset instructions",
+        title: "Feature Coming Soon",
+        description: "Password reset functionality will be available soon. Please contact your administrator.",
       });
       
       forgotPasswordForm.reset();
