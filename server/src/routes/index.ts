@@ -1,6 +1,6 @@
 
 import express from 'express';
-import { login, register } from '../controllers/authController';
+import { login, register, forgotPassword, resetPassword } from '../controllers/authController';
 import { getEmployees, getEmployeeById, createEmployee, updateEmployee, getMyProfile } from '../controllers/employeeController';
 import { getTasks, createTask, updateTask, deleteTask } from '../controllers/taskController';
 import { getMilestones, assignPlan, updateMilestone } from '../controllers/planController';
@@ -28,6 +28,8 @@ const router = express.Router();
 // Auth
 router.post('/auth/login', login);
 router.post('/auth/register', register);
+router.post('/auth/forgot-password', forgotPassword);
+router.post('/auth/reset-password', resetPassword);
 
 // Employees
 router.get('/employees/me', authMiddleware, getMyProfile); // Must be before :id

@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Development
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: onboarding-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: onboarding_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Development
+  redis-dev:
+    image: redis:7-alpine
+    container_name: onboarding-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MailDev - Email testing tool
+  maildev:
+    image: maildev/maildev
+    container_name: onboarding-maildev
+    restart: unless-stopped
+    ports:
+      - "1080:1080"  # Web UI
+      - "1025:1025"  # SMTP Server
+    environment:
+      MAILDEV_WEB_PORT: 1080
+      MAILDEV_SMTP_PORT: 1025
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:

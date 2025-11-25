@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import api from "@/lib/api";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -110,16 +111,19 @@ const Auth = () => {
   const onForgotPasswordSubmit = async (values: z.infer<typeof forgotPasswordSchema>) => {
     setIsSubmitting(true);
     try {
+      const response = await api.post('/auth/forgot-password', { email: values.email });
+      
       toast({
-        title: "Feature Coming Soon",
-        description: "Password reset functionality will be available soon. Please contact your administrator.",
+        title: "Reset Email Sent",
+        description: "If an account exists with that email, you will receive a password reset link.",
       });
       
       forgotPasswordForm.reset();
+      setActiveTab("login");
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.response?.data?.error || "Failed to send reset email",
         variant: "destructive",
       });
     } finally {

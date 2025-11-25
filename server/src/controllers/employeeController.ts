@@ -3,7 +3,9 @@ import { Response } from 'express';
 import prisma from '../prisma';
 import { AuthRequest } from '../middleware/auth';
 import bcrypt from 'bcryptjs';
-import { subDays } from 'date-fns';
+import { subDays, format } from 'date-fns';
+import { sendWelcomeEmail, sendCredentialsEmail } from '../services/emailService';
+import crypto from 'crypto';
 
 // Standard Pre-boarding Tasks logic moved to backend
 const STANDARD_PRE_BOARDING_TASKS = [
@@ -127,8 +129,12 @@ export const createEmployee = async (req: AuthRequest, res: Response) => {
       data: { userId: userAccount.id }
     });
 
-    // In production, send email with tempPassword here
-    console.log(`[EMAIL MOCK] Credentials for ${email}: ${tempPassword}`);
+    // Send welcome and credentials emails
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const startDateFormatted = start_date ? format(new Date(start_date), 'MMMM dd, yyyy') : 'To be determined';
+    
+    await sendWelcomeEmail(email, name, role, startDateFormatted);
+    await sendCredentialsEmail(email, name, tempPassword, `${FRONTEND_URL}/auth`);
 
     res.json({ ...employee, userId: userAccount.id });
   } catch (error) {
