@@ -9,15 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { format, addDays } from "date-fns";
 import { cn, formatMeetingTime } from "@/lib/utils";
 import { Calendar as CalendarIcon, Users, Clock, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import BackButton from "@/components/common/BackButton";
 import { Meeting } from "@/types";
+import { api } from "@/lib/api";
 
 const Schedules = () => {
   const { user } = useAuth();
@@ -41,12 +40,7 @@ const Schedules = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, name, role')
-        .eq('hr_id', user?.id);
-        
-      if (error) throw error;
+      const data = await api.getEmployees(user?.id);
       setEmployees(data || []);
     } catch (error: any) {
       console.error("Error fetching employees:", error.message);
@@ -62,12 +56,7 @@ const Schedules = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('meetings')
-        .select('*, employees(name)')
-        .eq('hr_id', user?.id);
-        
-      if (error) throw error;
+      const data = await api.getMeetings({ hr_id: user?.id });
       
       if (data) {
         const formattedMeetings: Meeting[] = data.map((meeting: any) => ({
@@ -127,19 +116,13 @@ const Schedules = () => {
     setIsScheduling(true);
 
     try {
-      const { data, error } = await supabase
-        .from('meetings')
-        .insert({
+      const data = await api.createMeeting({
           hr_id: user?.id,
           employee_id: selectedEmployee,
           meeting_date: selectedDate.toISOString(),
           meeting_time: meetingTime,
-          purpose: meetingPurpose,
-          status: 'scheduled' as const
-        })
-        .select();
-
-      if (error) throw error;
+          purpose: meetingPurpose
+      });
 
       const selectedEmployeeName = employees.find(e => e.id === selectedEmployee)?.name;
 
@@ -182,12 +165,7 @@ const Schedules = () => {
 
   const updateMeetingStatus = async (meetingId: string, status: 'completed' | 'cancelled') => {
     try {
-      const { error } = await supabase
-        .from('meetings')
-        .update({ status })
-        .eq('id', meetingId);
-
-      if (error) throw error;
+      await api.updateMeetingStatus(meetingId, status);
 
       setMeetings(meetings.map(meeting => 
         meeting.id === meetingId 

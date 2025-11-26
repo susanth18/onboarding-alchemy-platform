@@ -1,24 +1,9 @@
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { MilestonePeriod } from "@/types";
-
-const BUCKET_NAME = "employee_documents";
-const FOLDER_NAME = "milestone_plans";
 
 export const getMilestonePlan = async (employeeId: string): Promise<MilestonePeriod[] | null> => {
   try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .download(`${FOLDER_NAME}/${employeeId}.json`);
-
-    if (error) {
-      // If file doesn't exist, return null so we can use default plan
-      // The error message for missing file varies, check generic error
-      console.log("Error fetching plan (might be missing):", error);
-      return null;
-    }
-
-    const text = await data.text();
-    return JSON.parse(text);
+    return await api.getMilestonePlan(employeeId);
   } catch (error) {
     console.error("Error fetching milestone plan:", error);
     return null;
@@ -27,16 +12,7 @@ export const getMilestonePlan = async (employeeId: string): Promise<MilestonePer
 
 export const saveMilestonePlan = async (employeeId: string, plan: MilestonePeriod[]): Promise<boolean> => {
   try {
-    const blob = new Blob([JSON.stringify(plan)], { type: "application/json" });
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(`${FOLDER_NAME}/${employeeId}.json`, blob, {
-        upsert: true,
-        contentType: "application/json",
-      });
-
-    if (error) throw error;
-    return true;
+    return await api.saveMilestonePlan(employeeId, plan);
   } catch (error) {
     console.error("Error saving milestone plan:", error);
     return false;

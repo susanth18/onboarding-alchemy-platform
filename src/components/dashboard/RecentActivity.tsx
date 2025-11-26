@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { 
   Clock, 
-  FileText, 
-  CheckSquare, 
   Calendar, 
-  MessageSquare,
   User
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import { api } from "@/lib/api";
 
 interface ActivityItemProps {
   icon: React.ReactNode;
@@ -48,28 +45,14 @@ const RecentActivity: React.FC = () => {
       setLoading(true);
 
       try {
-        // Fetch recent employees (last 5)
-        const { data: newEmployees, error: empError } = await supabase
-          .from('employees')
-          .select('name, role, created_at, status')
-          .eq('hr_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
+        // Fetch recent employees (last 5) - assuming API returns them sorted by date
+        const newEmployees = await api.getEmployees(user.id);
 
-        if (empError) throw empError;
-
-        // Fetch recent meetings (last 5)
-        const { data: newMeetings, error: meetError } = await supabase
-          .from('meetings')
-          .select('purpose, meeting_date, created_at, employees(name)')
-          .eq('hr_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (meetError) throw meetError;
+        // Fetch recent meetings
+        const newMeetings = await api.getMeetings({ hr_id: user.id });
 
         // Transform and merge
-        const employeeActivities = (newEmployees || []).map(emp => ({
+        const employeeActivities = (newEmployees || []).map((emp: any) => ({
           type: 'employee',
           created_at: emp.created_at,
           icon: <User size={16} className="text-blue-500" />,
@@ -78,7 +61,7 @@ const RecentActivity: React.FC = () => {
           iconColor: "bg-blue-100"
         }));
 
-        const meetingActivities = (newMeetings || []).map(meet => ({
+        const meetingActivities = (newMeetings || []).map((meet: any) => ({
           type: 'meeting',
           created_at: meet.created_at,
           icon: <Calendar size={16} className="text-purple-500" />,

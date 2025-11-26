@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Users, FileText, CheckSquare, CalendarClock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { getTasks } from "@/lib/tasks";
+import { api } from "@/lib/api";
 
 interface StatCardProps {
   title: string;
@@ -68,26 +67,19 @@ const OnboardingStats: React.FC = () => {
       
       try {
         // Fetch active employees
-        const { data: employees } = await supabase
-          .from('employees')
-          .select('status, job_description_url, contract_url, resume_url')
-          .eq('hr_id', user.id);
+        const employees = await api.getEmployees(user.id);
           
-        const active = employees?.filter(e => e.status !== 'completed').length || 0;
+        const active = employees?.filter((e: any) => e.status !== 'completed').length || 0;
         
         // Calculate pending documents (for active employees)
-        const pendingDocs = employees?.filter(e => 
+        const pendingDocs = employees?.filter((e: any) => 
             e.status !== 'completed' && 
             (!e.job_description_url || !e.contract_url || !e.resume_url)
         ).length || 0;
 
         // Fetch meetings
-        const { count } = await supabase
-          .from('meetings')
-          .select('*', { count: 'exact', head: true })
-          .eq('hr_id', user.id)
-          .eq('status', 'scheduled');
-
+        const meetings = await api.getMeetings({ hr_id: user.id, status: 'scheduled' });
+        
         // Fetch tasks for completion rate
         const tasks = await getTasks(user.id);
         const completedTasks = tasks.filter(t => t.completed).length;
@@ -97,7 +89,7 @@ const OnboardingStats: React.FC = () => {
         setStats({
           activeOnboardings: active,
           documentsPending: pendingDocs,
-          scheduledMeetings: count || 0,
+          scheduledMeetings: meetings.length || 0,
           taskCompletionRate: taskRate
         });
       } catch (error) {

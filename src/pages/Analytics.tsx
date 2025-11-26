@@ -4,9 +4,9 @@ import BackButton from "@/components/common/BackButton";
 import { BarChart, LineChart, PieChart } from "lucide-react";
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell, LineChart as RechartsLineChart, Line, CartesianGrid } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, subMonths } from "date-fns";
+import { api } from "@/lib/api";
 
 // Keep progress data hardcoded for now as it requires complex storage scanning
 const progressData = [
@@ -36,18 +36,15 @@ const Analytics = () => {
       if (!user) return;
       setLoading(true);
       
-      const { data } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('hr_id', user.id);
+      const data = await api.getEmployees(user.id);
         
       if (data) {
         setEmployees(data);
         
         // Process status data
-        const pending = data.filter(e => e.status === 'pending').length;
-        const active = data.filter(e => e.status === 'active').length;
-        const completed = data.filter(e => e.status === 'completed').length;
+        const pending = data.filter((e: any) => e.status === 'pending').length;
+        const active = data.filter((e: any) => e.status === 'active').length;
+        const completed = data.filter((e: any) => e.status === 'completed').length;
         
         setStatusData([
           { name: 'Pending', value: pending, color: '#f59e0b' },
@@ -57,7 +54,7 @@ const Analytics = () => {
 
         // Process role data
         const roles: Record<string, number> = {};
-        data.forEach(e => {
+        data.forEach((e: any) => {
             roles[e.role] = (roles[e.role] || 0) + 1;
         });
         
@@ -79,7 +76,7 @@ const Analytics = () => {
             };
         });
 
-        data.forEach(e => {
+        data.forEach((e: any) => {
             const d = new Date(e.created_at);
             const monthIdx = d.getMonth();
             const year = d.getFullYear();

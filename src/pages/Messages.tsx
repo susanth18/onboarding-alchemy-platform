@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import BackButton from "@/components/common/BackButton";
@@ -10,9 +9,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { getMessages, sendMessage, Message } from "@/lib/messages";
 import { formatDistanceToNow } from "date-fns";
+import { api } from "@/lib/api";
 
 const Messages = () => {
   const { user } = useAuth();
@@ -44,12 +43,7 @@ const Messages = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, name, role, email')
-        .eq('hr_id', user?.id);
-        
-      if (error) throw error;
+      const data = await api.getEmployees(user?.id);
       setEmployees(data || []);
       if (data && data.length > 0) {
         setSelectedEmployee(data[0]);
@@ -72,7 +66,7 @@ const Messages = () => {
 
     setSending(true);
     const message: Message = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // Temporary ID, backend will generate UUID
       senderId: user.id,
       senderName: "HR Manager", // Ideally fetch HR name
       content: newMessage,
