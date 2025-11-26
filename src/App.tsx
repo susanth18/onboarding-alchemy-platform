@@ -17,6 +17,7 @@ import Plans from "./pages/Plans";
 import Messages from "./pages/Messages";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Recruitment from "./pages/Recruitment";
 import { AuthProvider } from "./contexts/AuthContext";
 import React from "react";
 
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/schedules" element={<Schedules />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/recruitment" element={<Recruitment />} />
               <Route path="/settings" element={<Settings />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

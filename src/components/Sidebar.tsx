@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   LogOut,
-  UserCircle
+  UserCircle,
+  Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -113,6 +114,13 @@ const Sidebar = () => {
             isActive={isActive("/employees")}
             onClick={() => navigate("/employees")}
             to="/employees"
+          />
+          <SidebarItem
+            icon={Briefcase}
+            label={collapsed ? "" : "Recruitment"}
+            isActive={isActive("/recruitment")}
+            onClick={() => navigate("/recruitment")}
+            to="/recruitment"
           />
           <SidebarItem
             icon={FileText}
