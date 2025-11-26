@@ -1,7 +1,5 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { ArrowLeft, User, Building, Briefcase, Save } from "lucide-react";
+import { api } from "@/lib/api";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -29,19 +28,15 @@ const Profile = () => {
 
     const loadProfile = async () => {
       try {
-        const { data, error } = await supabase
-          .from('hr_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-          
-        if (error) throw error;
+        const data = await api.getHrProfile(user.id);
         
-        setProfile({
-          name: data.name || "",
-          company: data.company || "",
-          position: data.position || "",
-        });
+        if (data) {
+          setProfile({
+            name: data.name || "",
+            company: data.company || "",
+            position: data.position || "",
+          });
+        }
       } catch (error: any) {
         console.error('Error loading profile:', error);
         toast({
@@ -73,16 +68,11 @@ const Profile = () => {
     setSaving(true);
     
     try {
-      const { error } = await supabase
-        .from('hr_profiles')
-        .update({
+      await api.updateHrProfile(user.id, {
           name: profile.name,
           company: profile.company,
           position: profile.position,
-        })
-        .eq('id', user.id);
-        
-      if (error) throw error;
+      });
       
       toast({
         title: "Profile Updated",

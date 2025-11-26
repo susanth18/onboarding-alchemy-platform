@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +7,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface MeetingSchedulerProps {
   employeeId: string;
@@ -47,19 +46,14 @@ const MeetingScheduler: React.FC<MeetingSchedulerProps> = ({ employeeId, hrId })
     setIsScheduling(true);
 
     try {
-      // Use the supabase client with a string literal for the table name
-      const { error } = await supabase
-        .from('meetings')
-        .insert({
+      await api.createMeeting({
           employee_id: employeeId,
           hr_id: hrId,
           meeting_date: selectedDate.toISOString(),
           meeting_time: meetingTime,
           purpose: meetingPurpose,
           status: 'scheduled'
-        });
-
-      if (error) throw error;
+      });
 
       toast({
         title: "Meeting scheduled",

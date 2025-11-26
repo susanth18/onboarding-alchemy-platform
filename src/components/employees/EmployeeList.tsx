@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -12,11 +11,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, FileText, RefreshCw, Trash2, ArrowLeft } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Employee } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -47,14 +46,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
       setIsLoading(true);
       
       try {
-        const { data, error } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('hr_id', user.id)
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
+        const data = await api.getEmployees(user.id);
         setEmployees(data as Employee[]);
       } catch (error: any) {
         toast({
@@ -91,12 +83,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ refreshTrigger }) => {
     if (!employeeToDelete) return;
     
     try {
-      const { error } = await supabase
-        .from('employees')
-        .delete()
-        .eq('id', employeeToDelete);
-        
-      if (error) throw error;
+      await api.deleteEmployee(employeeToDelete);
       
       setEmployees(employees.filter(employee => employee.id !== employeeToDelete));
       

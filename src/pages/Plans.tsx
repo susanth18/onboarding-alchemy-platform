@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,11 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Clock, CalendarCheck } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import BackButton from "@/components/common/BackButton";
 import { Milestone, MilestonePeriod } from "@/types";
 import { getMilestonePlan, saveMilestonePlan, defaultMilestonePlan } from "@/lib/milestones";
+import { api } from "@/lib/api";
 
 const Plans = () => {
   const { user } = useAuth();
@@ -49,12 +48,7 @@ const Plans = () => {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('hr_id', user?.id);
-        
-      if (error) throw error;
+      const data = await api.getEmployees(user?.id);
       setEmployees(data || []);
     } catch (error: any) {
       console.error("Error fetching employees:", error.message);

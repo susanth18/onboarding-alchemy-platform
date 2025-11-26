@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import BackButton from "@/components/common/BackButton";
 import { FileText, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Employee } from "@/types";
+import { api } from "@/lib/api";
 
 const Documents = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -35,15 +34,10 @@ const Documents = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('hr_id', user?.id);
-        
-      if (error) throw error;
+      const data = await api.getEmployees(user?.id);
       
       // Cast the data to the Employee type to ensure it matches
-      const typedEmployees = data?.map(employee => ({
+      const typedEmployees = data?.map((employee: any) => ({
         ...employee,
         status: employee.status as "pending" | "active" | "completed"
       })) || [];
@@ -78,38 +72,7 @@ const Documents = () => {
     setIsUploading(true);
 
     try {
-      // 1. Upload file to storage
-      const fileName = `${Date.now()}_${file.name}`;
-      const filePath = `employee_documents/${selectedEmployee}/${documentType}/${fileName}`;
-      
-      const { error: uploadError, data } = await supabase
-        .storage
-        .from('employee_documents')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // 2. Get the public URL
-      const { data: publicUrlData } = supabase
-        .storage
-        .from('employee_documents')
-        .getPublicUrl(filePath);
-
-      const publicUrl = publicUrlData.publicUrl;
-
-      // 3. Update employee record with document URL
-      const documentField = documentType === 'job_description' 
-        ? 'job_description_url' 
-        : documentType === 'contract' 
-          ? 'contract_url' 
-          : 'resume_url';
-
-      const { error: updateError } = await supabase
-        .from('employees')
-        .update({ [documentField]: publicUrl })
-        .eq('id', selectedEmployee);
-
-      if (updateError) throw updateError;
+      await api.uploadDocument(selectedEmployee, documentType, file);
 
       toast({
         title: "Upload successful",

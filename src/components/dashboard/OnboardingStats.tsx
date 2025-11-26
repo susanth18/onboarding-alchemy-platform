@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Users, FileText, CheckSquare, CalendarClock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { getTasks } from "@/lib/tasks";
+import { api } from "@/lib/api";
 
 interface StatCardProps {
   title: string;
@@ -57,7 +57,8 @@ const OnboardingStats: React.FC = () => {
   const [stats, setStats] = useState({
     activeOnboardings: 0,
     documentsPending: 0,
-    scheduledMeetings: 0
+    scheduledMeetings: 0,
+    taskCompletionRate: 0
   });
 
   useEffect(() => {
@@ -66,30 +67,30 @@ const OnboardingStats: React.FC = () => {
       
       try {
         // Fetch active employees
-        const { data: employees } = await supabase
-          .from('employees')
-          .select('status, job_description_url, contract_url, resume_url')
-          .eq('hr_id', user.id);
+        const employees = await api.getEmployees(user.id);
           
-        const active = employees?.filter(e => e.status !== 'completed').length || 0;
+        const active = employees?.filter((e: any) => e.status !== 'completed').length || 0;
         
         // Calculate pending documents (for active employees)
-        const pendingDocs = employees?.filter(e => 
+        const pendingDocs = employees?.filter((e: any) => 
             e.status !== 'completed' && 
             (!e.job_description_url || !e.contract_url || !e.resume_url)
         ).length || 0;
 
         // Fetch meetings
-        const { count } = await supabase
-          .from('meetings')
-          .select('*', { count: 'exact', head: true })
-          .eq('hr_id', user.id)
-          .eq('status', 'scheduled');
+        const meetings = await api.getMeetings({ hr_id: user.id, status: 'scheduled' });
+        
+        // Fetch tasks for completion rate
+        const tasks = await getTasks(user.id);
+        const completedTasks = tasks.filter(t => t.completed).length;
+        const totalTasks = tasks.length;
+        const taskRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
         setStats({
           activeOnboardings: active,
           documentsPending: pendingDocs,
-          scheduledMeetings: count || 0
+          scheduledMeetings: meetings.length || 0,
+          taskCompletionRate: taskRate
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -105,7 +106,7 @@ const OnboardingStats: React.FC = () => {
         title="Active Onboardings"
         value={stats.activeOnboardings}
         subtitle="Employees in process"
-        change={{ value: 8, isPositive: true }}
+        // change={{ value: 8, isPositive: true }}
         icon={<Users size={24} className="text-hr-blue" />}
         color="bg-blue-50"
       />
@@ -114,15 +115,15 @@ const OnboardingStats: React.FC = () => {
         title="Documents Pending"
         value={stats.documentsPending}
         subtitle="Employees with missing docs"
-        change={{ value: 5, isPositive: false }}
+        // change={{ value: 5, isPositive: false }}
         icon={<FileText size={24} className="text-hr-amber" />}
         color="bg-amber-50"
       />
       
       <StatCard
-        title="Completed Tasks"
-        value="--"
-        subtitle="Overall completion rate"
+        title="Tasks Completed"
+        value={`${stats.taskCompletionRate}%`}
+        subtitle="HR task completion rate"
         icon={<CheckSquare size={24} className="text-hr-teal" />}
         color="bg-teal-50"
       />

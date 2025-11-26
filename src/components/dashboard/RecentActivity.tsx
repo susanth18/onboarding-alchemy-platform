@@ -1,13 +1,12 @@
-
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { 
   Clock, 
-  FileText, 
-  CheckSquare, 
   Calendar, 
-  MessageSquare,
   User
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow } from "date-fns";
+import { api } from "@/lib/api";
 
 interface ActivityItemProps {
   icon: React.ReactNode;
@@ -36,43 +35,73 @@ const ActivityItem: React.FC<ActivityItemProps> = ({ icon, title, description, t
 };
 
 const RecentActivity: React.FC = () => {
-  const activities = [
-    {
-      icon: <FileText size={16} className="text-blue-500" />,
-      title: "Offer Letter Signed",
-      description: "Sarah Johnson accepted the offer for UX Designer position",
-      time: "10m ago",
-      iconColor: "bg-blue-100"
-    },
-    {
-      icon: <CheckSquare size={16} className="text-teal-500" />,
-      title: "30-60-90 Plan Updated",
-      description: "David Miller's plan was approved by department head",
-      time: "1h ago",
-      iconColor: "bg-teal-100"
-    },
-    {
-      icon: <Calendar size={16} className="text-purple-500" />,
-      title: "Orientation Scheduled",
-      description: "New developer team orientation set for Monday, 9 AM",
-      time: "2h ago",
-      iconColor: "bg-purple-100"
-    },
-    {
-      icon: <MessageSquare size={16} className="text-amber-500" />,
-      title: "Feedback Submitted",
-      description: "Emma Wilson submitted feedback for her first week",
-      time: "5h ago",
-      iconColor: "bg-amber-100"
-    },
-    {
-      icon: <User size={16} className="text-red-500" />,
-      title: "New Employee Added",
-      description: "Michael Brown was added to Sales department",
-      time: "1d ago",
-      iconColor: "bg-red-100"
-    }
-  ];
+  const { user } = useAuth();
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (!user) return;
+      setLoading(true);
+
+      try {
+        // Fetch recent employees (last 5) - assuming API returns them sorted by date
+        const newEmployees = await api.getEmployees(user.id);
+
+        // Fetch recent meetings
+        const newMeetings = await api.getMeetings({ hr_id: user.id });
+
+        // Transform and merge
+        const employeeActivities = (newEmployees || []).map((emp: any) => ({
+          type: 'employee',
+          created_at: emp.created_at,
+          icon: <User size={16} className="text-blue-500" />,
+          title: "New Employee Added",
+          description: `${emp.name} joined as ${emp.role}`,
+          iconColor: "bg-blue-100"
+        }));
+
+        const meetingActivities = (newMeetings || []).map((meet: any) => ({
+          type: 'meeting',
+          created_at: meet.created_at,
+          icon: <Calendar size={16} className="text-purple-500" />,
+          title: "Meeting Scheduled",
+          description: `${meet.purpose} with ${meet.employees?.name || 'Employee'}`,
+          iconColor: "bg-purple-100"
+        }));
+
+        // Combine and sort by date desc
+        const allActivities = [...employeeActivities, ...meetingActivities]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5); // Take top 5
+
+        setActivities(allActivities);
+      } catch (error) {
+        console.error("Error fetching activities:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="hr-card h-full flex justify-center items-center">
+         <div className="animate-spin h-6 w-6 border-2 border-primary rounded-full border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  if (activities.length === 0) {
+    return (
+      <div className="hr-card h-full">
+        <h3 className="hr-card-title mb-4">Recent Activity</h3>
+        <p className="text-sm text-gray-500 text-center py-4">No recent activity found.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="hr-card h-full">
@@ -82,7 +111,11 @@ const RecentActivity: React.FC = () => {
       </div>
       <div className="space-y-0">
         {activities.map((activity, index) => (
-          <ActivityItem key={index} {...activity} />
+          <ActivityItem 
+            key={index} 
+            {...activity} 
+            time={formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
+          />
         ))}
       </div>
     </div>

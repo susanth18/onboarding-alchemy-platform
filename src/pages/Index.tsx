@@ -34,9 +34,9 @@ const Index: React.FC = () => {
   }
 
   // Redirect to login if not authenticated
-  if (!user) {
-    return <Navigate to="/auth" />;
-  }
+  // if (!user) {
+  //   return <Navigate to="/auth" />;
+  // }
 
   return (
     <div className="flex h-screen bg-gray-50">

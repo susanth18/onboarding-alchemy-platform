@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -8,12 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FileText, Download, User, Mail, Phone, Briefcase, CheckCircle, XCircle, Loader2, Upload } from "lucide-react";
-import { generatePassword } from "@/lib/utils";
+import { FileText, Download, Upload, Loader2 } from "lucide-react";
 import BackButton from "@/components/common/BackButton";
 import MeetingScheduler from "@/components/employees/MeetingScheduler";
+import { api } from "@/lib/api";
 
 const EmployeeDetails = () => {
   const { user } = useAuth();
@@ -47,14 +45,7 @@ const EmployeeDetails = () => {
   const fetchEmployeeData = async (employeeId: string) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('id', employeeId)
-        .single();
-
-      if (error) throw error;
-
+      const data = await api.getEmployee(employeeId);
       setEmployee(data);
       setStatus(data.status);
       setEmail(data.email);
@@ -72,14 +63,10 @@ const EmployeeDetails = () => {
   };
 
   const handleStatusChange = async (newStatus: string) => {
+    if (!id) return;
     setIsUpdating(true);
     try {
-      const { error } = await supabase
-        .from('employees')
-        .update({ status: newStatus })
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.updateEmployee(id, { status: newStatus });
 
       setStatus(newStatus);
       setEmployee({ ...employee, status: newStatus });
@@ -100,18 +87,14 @@ const EmployeeDetails = () => {
   };
 
   const handleUpdateEmployee = async () => {
+    if (!id) return;
     setIsUpdating(true);
     try {
-      const { error } = await supabase
-        .from('employees')
-        .update({
+      await api.updateEmployee(id, {
           email: email,
           phone: phone,
           role: role,
-        })
-        .eq('id', id);
-
-      if (error) throw error;
+      });
 
       setEmployee({ ...employee, email: email, phone: phone, role: role });
 

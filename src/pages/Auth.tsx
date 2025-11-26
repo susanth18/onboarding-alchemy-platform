@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -11,13 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z.string().min(1, { message: "Password is required." }), // Min 1 for demo
 });
 
 const signupSchema = z.object({
@@ -28,10 +26,6 @@ const signupSchema = z.object({
   position: z.string().min(2, { message: "Position must be at least 2 characters." }),
 });
 
-const forgotPasswordSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address." }),
-});
-
 const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
@@ -40,49 +34,15 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkUserRole = async () => {
-      if (user) {
-        try {
-          // Check if user is an HR (has an hr_profile)
-          const { data: hrProfile, error: hrError } = await supabase
-            .from('hr_profiles')
-            .select('id')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          if (!hrError && hrProfile) {
-            navigate('/'); // HR user goes to dashboard
-            return;
-          }
-          
-          // Check if user is an employee
-          const { data: employeeData, error: empError } = await supabase
-            .from('employees')
-            .select('id')
-            .eq('email', user.email)
-            .maybeSingle();
-            
-          if (!empError && employeeData) {
-            navigate('/employee-portal'); // Employee goes to employee portal
-            return;
-          }
-          
-          // Default fallback - just redirect to home
-          navigate('/');
-        } catch (error) {
-          console.error('Error checking user role:', error);
-          navigate('/');
-        }
-      }
-    };
-    
-    checkUserRole();
+    if (user) {
+       navigate('/');
+    }
   }, [user, navigate]);
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      email: "demo@example.com",
       password: "",
     }
   });
@@ -95,13 +55,6 @@ const Auth = () => {
       password: "",
       company: "",
       position: "",
-    }
-  });
-
-  const forgotPasswordForm = useForm<z.infer<typeof forgotPasswordSchema>>({
-    resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: {
-      email: "",
     }
   });
 
@@ -127,42 +80,9 @@ const Auth = () => {
         company: values.company,
         position: values.position,
       });
-      
-      toast({
-        title: "Account created",
-        description: "Please check your email to verify your account",
-      });
-      
-      setActiveTab("login");
-      signupForm.reset();
+      // AuthContext handles success toast and potentially login/redirect
     } catch (error) {
       // Error handling is done in the AuthContext
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const onForgotPasswordSubmit = async (values: z.infer<typeof forgotPasswordSchema>) => {
-    setIsSubmitting(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${window.location.origin}/auth?tab=reset-password`,
-      });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Reset email sent",
-        description: "Please check your email for password reset instructions",
-      });
-      
-      forgotPasswordForm.reset();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
     } finally {
       setIsSubmitting(false);
     }
@@ -177,10 +97,9 @@ const Auth = () => {
         </div>
         
         <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 mb-6">
+          <TabsList className="grid grid-cols-2 mb-6">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
-            <TabsTrigger value="forgot-password">Forgot Password</TabsTrigger>
           </TabsList>
           
           <TabsContent value="login">
@@ -231,16 +150,14 @@ const Auth = () => {
                     <Button type="submit" className="w-full" disabled={isSubmitting}>
                       {isSubmitting ? "Logging in..." : "Login"}
                     </Button>
+                    
+                    <div className="mt-4 text-center text-sm text-gray-500">
+                      <p>Demo Credentials:</p>
+                      <p>HR: demo@example.com / any password</p>
+                    </div>
                   </form>
                 </Form>
               </CardContent>
-              <CardFooter className="flex flex-col space-y-2">
-                <div className="text-sm text-gray-500 w-full text-center">
-                  <Button variant="link" className="p-0 h-auto" onClick={() => setActiveTab("forgot-password")}>
-                    Forgot your password?
-                  </Button>
-                </div>
-              </CardFooter>
             </Card>
           </TabsContent>
           
@@ -329,54 +246,6 @@ const Auth = () => {
                   </form>
                 </Form>
               </CardContent>
-              <CardFooter className="flex justify-center">
-                <p className="text-sm text-gray-500">
-                  Already have an account?{" "}
-                  <Button variant="link" className="p-0 h-auto" onClick={() => setActiveTab("login")}>
-                    Login
-                  </Button>
-                </p>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="forgot-password">
-            <Card>
-              <CardHeader>
-                <CardTitle>Forgot Password</CardTitle>
-                <CardDescription>Enter your email to reset your password</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...forgotPasswordForm}>
-                  <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
-                    <FormField
-                      control={forgotPasswordForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="email@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                      {isSubmitting ? "Sending reset email..." : "Reset Password"}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-              <CardFooter className="flex justify-center">
-                <p className="text-sm text-gray-500">
-                  Remember your password?{" "}
-                  <Button variant="link" className="p-0 h-auto" onClick={() => setActiveTab("login")}>
-                    Login
-                  </Button>
-                </p>
-              </CardFooter>
             </Card>
           </TabsContent>
         </Tabs>

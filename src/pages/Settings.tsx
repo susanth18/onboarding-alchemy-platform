@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import BackButton from "@/components/common/BackButton";
@@ -14,7 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -32,11 +31,7 @@ const Settings = () => {
     const fetchProfile = async () => {
       if (!user) return;
       
-      const { data } = await supabase
-        .from('hr_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      const data = await api.getHrProfile(user.id);
         
       if (data) {
         const names = data.name.split(' ');
@@ -60,16 +55,11 @@ const Settings = () => {
     setSaving(true);
     
     try {
-      const { error } = await supabase
-        .from('hr_profiles')
-        .update({
+      await api.updateHrProfile(user.id, {
           name: `${profile.firstName} ${profile.lastName}`.trim(),
           company: profile.company,
           position: profile.position
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
+      });
 
       toast({
         title: "Settings saved",
@@ -238,6 +228,22 @@ const Settings = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                  
+                  <div className="flex justify-end">
+                    <Button onClick={handleSave} disabled={saving}>
+                      {saving ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 mr-2 border-2 border-white rounded-full border-t-transparent"></div>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <SaveIcon className="h-4 w-4 mr-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </TabsContent>
@@ -498,12 +504,12 @@ const Settings = () => {
                       </p>
                       <div className="flex items-center justify-between mt-2">
                         <div>
-                          <p className="font-medium">Plan</p>
-                          <p className="text-sm text-muted-foreground">
-                            You are currently on the <span className="font-medium">Pro Plan</span>
+                          <p className="font-medium text-red-600">Delete Account</p>
+                          <p className="text-xs text-muted-foreground">
+                            Permanently remove your account and data
                           </p>
                         </div>
-                        <Button variant="outline">Upgrade</Button>
+                        <Button variant="destructive" size="sm">Delete Account</Button>
                       </div>
                     </div>
                   </div>
@@ -515,56 +521,84 @@ const Settings = () => {
                   <h3 className="text-lg font-medium">Help & Support</h3>
                   
                   <div className="space-y-4">
-                    <div className="rounded-md border p-4">
-                      <h4 className="font-medium">Documentation</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Browse our comprehensive documentation for guides and tutorials
+                    <div className="rounded-md border p-4 bg-blue-50 border-blue-100">
+                      <h4 className="font-medium text-blue-900">Contact Support</h4>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Need help? Our support team is available 24/7.
                       </p>
-                      <Button variant="outline" className="mt-2">View Documentation</Button>
+                      <Button className="mt-3 bg-blue-600 hover:bg-blue-700">Contact Support</Button>
                     </div>
                     
-                    <div className="rounded-md border p-4">
-                      <h4 className="font-medium">Contact Support</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Get in touch with our support team for assistance
-                      </p>
-                      <Button variant="outline" className="mt-2">Contact Support</Button>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Documentation</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Read our detailed guides and API documentation.
+                          </p>
+                          <Button variant="outline" size="sm" className="w-full">View Docs</Button>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Community Forum</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Join the discussion and get help from other users.
+                          </p>
+                          <Button variant="outline" size="sm" className="w-full">Visit Forum</Button>
+                        </CardContent>
+                      </Card>
                     </div>
                     
-                    <div className="rounded-md border p-4">
+                    <div className="space-y-2 pt-4">
                       <h4 className="font-medium">Frequently Asked Questions</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Find answers to common questions about the platform
-                      </p>
-                      <Button variant="outline" className="mt-2">View FAQs</Button>
-                    </div>
-                    
-                    <div className="rounded-md border p-4">
-                      <h4 className="font-medium">Community Forum</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Connect with other users and share insights
-                      </p>
-                      <Button variant="outline" className="mt-2">Join Forum</Button>
+                      
+                      <div className="space-y-2">
+                        <details className="group rounded-lg border px-4 py-2">
+                          <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+                            How do I add a new employee?
+                            <span className="transition group-open:rotate-180">
+                              <svg fill="none" height="24" shapeRendering="geometricPrecision" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
+                            </span>
+                          </summary>
+                          <p className="group-open:animate-fadeIn mt-3 text-neutral-600">
+                            Go to the Employees page and click the "Add Employee" button in the top right corner. Fill out the form and the employee will receive an email with their login credentials.
+                          </p>
+                        </details>
+                        
+                        <details className="group rounded-lg border px-4 py-2">
+                          <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+                            Can I customize the onboarding plan?
+                            <span className="transition group-open:rotate-180">
+                              <svg fill="none" height="24" shapeRendering="geometricPrecision" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
+                            </span>
+                          </summary>
+                          <p className="group-open:animate-fadeIn mt-3 text-neutral-600">
+                            Yes, you can create custom onboarding plans for different roles. Go to the Plans page to manage templates and assign them to employees.
+                          </p>
+                        </details>
+                        
+                        <details className="group rounded-lg border px-4 py-2">
+                          <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+                            How do I upload documents?
+                            <span className="transition group-open:rotate-180">
+                              <svg fill="none" height="24" shapeRendering="geometricPrecision" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
+                            </span>
+                          </summary>
+                          <p className="group-open:animate-fadeIn mt-3 text-neutral-600">
+                            Navigate to the Documents page or an employee's profile. Select the employee and document type, then upload the file.
+                          </p>
+                        </details>
+                      </div>
                     </div>
                   </div>
                 </div>
               </TabsContent>
-              
-              <div className="mt-6 flex justify-end">
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <SaveIcon className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <SaveIcon className="mr-2 h-4 w-4" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
           </div>
         </CardContent>

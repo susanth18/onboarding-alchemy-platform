@@ -1,9 +1,7 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { FileText, CalendarCheck, Users, CheckSquare, ArrowLeft, Download, User, Calendar, LogOut } from "lucide-react";
+import { FileText, CalendarCheck, Users, CheckSquare, ArrowLeft, Download, User, Calendar, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { Meeting, MilestonePeriod } from "@/types";
 import { getMilestonePlan, saveMilestonePlan, defaultMilestonePlan } from "@/lib/milestones";
+import { api } from "@/lib/api";
 
 const EmployeePortal = () => {
   const navigate = useNavigate();
@@ -48,33 +47,15 @@ const EmployeePortal = () => {
   const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>(defaultMilestonePlan);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (userRole !== 'employee') {
-      console.log("User is not an employee, redirecting to appropriate page");
-      navigate('/');
-      return;
-    }
-
     const loadEmployeeData = async () => {
+      if (!user?.email) return;
+
       try {
         console.log("Loading employee data for", user.email);
         
-        // Changed from single() to maybeSingle() to prevent errors when no rows are found
-        const { data: employeeData, error: employeeError } = await supabase
-          .from('employees')
-          .select('*, hr_id')
-          .eq('email', user.email)
-          .maybeSingle();
+        const employees = await api.getEmployees(undefined, user.email);
+        const employeeData = employees.length > 0 ? employees[0] : null;
 
-        if (employeeError) {
-          console.error("Error fetching employee data:", employeeError);
-          throw employeeError;
-        }
-        
         if (!employeeData) {
           console.error("No employee record found for this user");
           toast({
@@ -90,18 +71,13 @@ const EmployeePortal = () => {
         setEmployeeData(employeeData);
         
         if (employeeData.hr_id) {
-          // Changed from single() to maybeSingle() to prevent errors
-          const { data: hrData, error: hrError } = await supabase
-            .from('hr_profiles')
-            .select('name')
-            .eq('id', employeeData.hr_id)
-            .maybeSingle();
-            
-          if (hrError) {
-            console.error("Error fetching HR data:", hrError);
-          } else if (hrData) {
-            console.log("HR data loaded:", hrData);
-            setHrName(hrData.name);
+          try {
+            const hrData = await api.getHrProfile(employeeData.hr_id);
+            if (hrData) {
+                setHrName(hrData.name);
+            }
+          } catch (e) {
+              console.error("Error fetching HR profile", e);
           }
         }
         
@@ -112,28 +88,23 @@ const EmployeePortal = () => {
         });
 
         // Directly get meetings with employee's UUID
-        const { data: meetingsData, error: meetingsError } = await supabase
-          .from('meetings')
-          .select('*')
-          .eq('employee_id', employeeData.id);
-          
-        if (meetingsError) {
-          console.error("Error fetching meetings:", meetingsError);
-        } else {
-          console.log("Meetings loaded:", meetingsData);
-          if (meetingsData) {
-            const formattedMeetings: Meeting[] = meetingsData.map((meeting) => ({
-              id: meeting.id,
-              hr_id: meeting.hr_id,
-              employee_id: meeting.employee_id,
-              meeting_date: meeting.meeting_date,
-              meeting_time: meeting.meeting_time,
-              purpose: meeting.purpose,
-              status: meeting.status as 'scheduled' | 'completed' | 'cancelled'
-            }));
-            
-            setMeetings(formattedMeetings);
-          }
+        try {
+            const meetingsData = await api.getMeetings({ employee_id: employeeData.id });
+            if (meetingsData) {
+                const formattedMeetings: Meeting[] = meetingsData.map((meeting: any) => ({
+                  id: meeting.id,
+                  hr_id: meeting.hr_id,
+                  employee_id: meeting.employee_id,
+                  meeting_date: meeting.meeting_date,
+                  meeting_time: meeting.meeting_time,
+                  purpose: meeting.purpose,
+                  status: meeting.status as 'scheduled' | 'completed' | 'cancelled'
+                }));
+                
+                setMeetings(formattedMeetings);
+            }
+        } catch (e) {
+            console.error("Error fetching meetings", e);
         }
 
         // Load milestone plan
@@ -226,19 +197,13 @@ const EmployeePortal = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('meetings')
-        .insert({
+      const data = await api.createMeeting({
           hr_id: employeeData?.hr_id,
           employee_id: employeeData?.id,
           meeting_date: selectedDate.toISOString(),
           meeting_time: meetingTime,
-          purpose: meetingPurpose,
-          status: 'scheduled' as const
-        })
-        .select();
-
-      if (error) throw error;
+          purpose: meetingPurpose
+      });
 
       const formattedDate = format(selectedDate, "MMMM do, yyyy");
       
@@ -450,7 +415,7 @@ const EmployeePortal = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin h-8 w-8 border-4 border-primary rounded-full border-t-transparent"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -498,304 +463,217 @@ const EmployeePortal = () => {
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">Role</p>
-                  <p className="font-medium">{employeeData?.role || "Not specified"}</p>
+                  <p className="font-medium">{employeeData?.role || "N/A"}</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge className={
-                    employeeData?.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                    employeeData?.status === 'active' ? 'bg-green-100 text-green-800' : 
-                    'bg-blue-100 text-blue-800'
-                  }>
-                    {employeeData?.status || "Unknown"}
-                  </Badge>
+                  <Badge>{employeeData?.status || "Pending"}</Badge>
                 </div>
               </div>
-              
-              <Separator className="my-4" />
-              
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <p className="text-sm font-medium">Onboarding Progress</p>
-                  <p className="text-sm text-muted-foreground">{completedTasks} of {totalTasks} tasks completed</p>
+              <Separator />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Completion</p>
+                  <div className="flex items-center">
+                    <Progress value={totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0} className="h-2 flex-1 mr-4" />
+                    <span className="text-sm font-medium">{completedTasks}/{totalTasks} Tasks</span>
+                  </div>
                 </div>
-                <Progress value={(completedTasks / totalTasks) * 100} className="h-2" />
               </div>
             </div>
           </CardContent>
-        </Card>
-
-        <Tabs value={activeTab} onValueChange={setActiveTabAndNavigate} className="space-y-6">
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-4">
-            <TabsTrigger value="dashboard" className="flex items-center">
-              <User className="h-4 w-4 mr-2" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="flex items-center">
-              <FileText className="h-4 w-4 mr-2" />
-              Documents
-            </TabsTrigger>
-            <TabsTrigger value="plan" className="flex items-center">
-              <CalendarCheck className="h-4 w-4 mr-2" />
-              30-60-90 Day Plan
-            </TabsTrigger>
-            <TabsTrigger value="meetings" className="flex items-center">
-              <Users className="h-4 w-4 mr-2" />
-              Meetings
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="dashboard">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-primary" />
-                    Documents
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Access your job-related documents and agreements
-                  </p>
-                  <ul className="space-y-2">
-                    <li className="flex items-center text-sm">
-                      <FileText className="h-4 w-4 mr-2 text-primary" />
-                      Job Description
-                      {documents.job_description_url ? (
-                        <Badge variant="outline" className="ml-2">Available</Badge>
-                      ) : (
-                        <Badge variant="outline" className="ml-2 bg-gray-100">Pending</Badge>
-                      )}
-                    </li>
-                    <li className="flex items-center text-sm">
-                      <FileText className="h-4 w-4 mr-2 text-primary" />
-                      Contract
-                      {documents.contract_url ? (
-                        <Badge variant="outline" className="ml-2">Available</Badge>
-                      ) : (
-                        <Badge variant="outline" className="ml-2 bg-gray-100">Pending</Badge>
-                      )}
-                    </li>
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTabAndNavigate("documents")}>
-                    View Documents
-                  </Button>
-                </CardFooter>
-              </Card>
+          <CardFooter className="bg-gray-50 p-0 border-t">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="px-6 pt-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                  <TabsTrigger value="plan">Onboarding Plan</TabsTrigger>
+                  <TabsTrigger value="documents">Documents</TabsTrigger>
+                  <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                </TabsList>
+              </div>
               
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <CalendarCheck className="h-5 w-5 mr-2 text-primary" />
-                    Your Progress
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Track your 30-60-90 day plan progress
-                  </p>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>First 30 Days</span>
-                        <span>{milestonePlan[0].milestones.filter(m => m.completed).length}/{milestonePlan[0].milestones.length}</span>
-                      </div>
-                      <Progress value={(milestonePlan[0].milestones.filter(m => m.completed).length / milestonePlan[0].milestones.length) * 100} className="h-2" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>60 Days</span>
-                        <span>{milestonePlan[1].milestones.filter(m => m.completed).length}/{milestonePlan[1].milestones.length}</span>
-                      </div>
-                      <Progress value={(milestonePlan[1].milestones.filter(m => m.completed).length / milestonePlan[1].milestones.length) * 100} className="h-2" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>90 Days</span>
-                        <span>{milestonePlan[2].milestones.filter(m => m.completed).length}/{milestonePlan[2].milestones.length}</span>
-                      </div>
-                      <Progress value={(milestonePlan[2].milestones.filter(m => m.completed).length / milestonePlan[2].milestones.length) * 100} className="h-2" />
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTabAndNavigate("plan")}>
-                    View Full Plan
-                  </Button>
-                </CardFooter>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Users className="h-5 w-5 mr-2 text-primary" />
-                    Upcoming Meetings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Schedule and manage your onboarding meetings
-                  </p>
-                  <div className="space-y-3">
-                    <div className="p-3 border rounded-md">
-                      <p className="font-medium">Onboarding Introduction</p>
-                      <p className="text-sm text-muted-foreground">With {hrName}</p>
-                      <p className="text-sm text-muted-foreground mt-1">Tomorrow, 10:00 AM</p>
-                    </div>
-                    <div className="p-3 border rounded-md">
-                      <p className="font-medium">Team Introduction</p>
-                      <p className="text-sm text-muted-foreground">With Team Lead</p>
-                      <p className="text-sm text-muted-foreground mt-1">Next Monday, 2:00 PM</p>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTabAndNavigate("meetings")}>
-                    Schedule Meeting
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="documents">
-            {renderDocumentsTabContent()}
-          </TabsContent>
-          
-          <TabsContent value="plan">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your 30-60-90 Day Plan</CardTitle>
-                <CardDescription>Track your progress through the onboarding process</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-8">
-                  {milestonePlan.map((period, periodIndex) => (
-                    <div key={period.title} className="space-y-4">
-                      <h3 className="font-semibold text-lg">{period.title}</h3>
-                      <div className="space-y-4">
-                        {period.milestones.map((milestone, milestoneIndex) => (
-                          <div key={milestone.id} className="border rounded-md p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start space-x-3">
+              <div className="p-6">
+                <TabsContent value="dashboard" className="mt-0 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center">
+                          <CheckSquare className="h-5 w-5 text-primary mr-2" />
+                          Current Tasks
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {milestonePlan[0].milestones.length > 0 ? (
+                          <div className="space-y-3">
+                            {milestonePlan[0].milestones.slice(0, 3).map((milestone, index) => (
+                              <div key={milestone.id} className="flex items-start space-x-3">
                                 <Checkbox 
-                                  id={`milestone-${milestone.id}`}
-                                  checked={milestone.completed}
-                                  onCheckedChange={() => toggleMilestoneCompletion(periodIndex, milestoneIndex)}
-                                  className="mt-1"
+                                  checked={milestone.completed} 
+                                  onCheckedChange={() => toggleMilestoneCompletion(0, index)}
                                 />
-                                <div className="space-y-1">
-                                  <label 
-                                    htmlFor={`milestone-${milestone.id}`} 
-                                    className={`font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${milestone.completed ? 'line-through text-muted-foreground' : ''}`}
-                                  >
-                                    {milestone.text}
-                                  </label>
-                                  
-                                  <div className="mt-2">
-                                    <Label htmlFor={`notes-${milestone.id}`} className="text-sm text-muted-foreground">
-                                      Notes
-                                    </Label>
-                                    <Textarea 
-                                      id={`notes-${milestone.id}`}
-                                      placeholder="Add notes here..."
-                                      value={milestone.notes}
-                                      onChange={(e) => updateMilestoneNotes(periodIndex, milestoneIndex, e.target.value)}
-                                      className="mt-1 text-sm"
-                                    />
+                                <label className={`text-sm ${milestone.completed ? 'line-through text-muted-foreground' : ''}`}>
+                                  {milestone.text}
+                                </label>
+                              </div>
+                            ))}
+                            <Button variant="link" className="px-0" onClick={() => setActiveTabAndNavigate("plan")}>
+                              View full plan
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No pending tasks</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center">
+                          <Calendar className="h-5 w-5 text-primary mr-2" />
+                          Upcoming Meetings
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {renderUpcomingMeetings()}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="plan" className="mt-0">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Your 30-60-90 Day Plan</CardTitle>
+                      <CardDescription>
+                        Follow this roadmap for a successful onboarding journey
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-8">
+                        {milestonePlan.map((period, periodIndex) => (
+                          <div key={period.title} className="space-y-4">
+                            <h3 className="font-semibold text-lg flex items-center">
+                              <CalendarCheck className="h-5 w-5 text-primary mr-2" />
+                              {period.title}
+                            </h3>
+                            <div className="space-y-4 pl-2 border-l-2 border-gray-100 ml-2">
+                              {period.milestones.map((milestone, milestoneIndex) => (
+                                <div key={milestone.id} className="pl-4 relative">
+                                  <div className="border rounded-md p-4 bg-white">
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start space-x-3">
+                                        <Checkbox 
+                                          id={`portal-milestone-${milestone.id}`}
+                                          checked={milestone.completed}
+                                          onCheckedChange={() => toggleMilestoneCompletion(periodIndex, milestoneIndex)}
+                                          className="mt-1"
+                                        />
+                                        <div className="space-y-1">
+                                          <label 
+                                            htmlFor={`portal-milestone-${milestone.id}`} 
+                                            className={`font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${milestone.completed ? 'line-through text-muted-foreground' : ''}`}
+                                          >
+                                            {milestone.text}
+                                          </label>
+                                          
+                                          <div className="mt-2">
+                                            <Label htmlFor={`portal-notes-${milestone.id}`} className="text-xs text-muted-foreground">
+                                              My Notes
+                                            </Label>
+                                            <Textarea 
+                                              id={`portal-notes-${milestone.id}`}
+                                              placeholder="Add your notes here..."
+                                              value={milestone.notes}
+                                              onChange={(e) => updateMilestoneNotes(periodIndex, milestoneIndex, e.target.value)}
+                                              className="mt-1 text-sm h-20"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <Badge variant={milestone.completed ? "default" : "outline"}>
+                                        {milestone.completed ? "Completed" : "Pending"}
+                                      </Badge>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <Badge variant={milestone.completed ? "default" : "outline"}>
-                                {milestone.completed ? "Completed" : "Pending"}
-                              </Badge>
+                              ))}
                             </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="meetings">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Schedule a Meeting</CardTitle>
-                  <CardDescription>Book time with your HR manager or team members</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="meeting-date">Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !selectedDate && "text-muted-foreground"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {selectedDate ? format(selectedDate, "PPP") : "Select a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <CalendarComponent
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          initialFocus
-                          disabled={(date) => date < new Date() || date > addDays(new Date(), 60)}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="meeting-time">Time</Label>
-                    <Input
-                      id="meeting-time"
-                      type="time"
-                      value={meetingTime}
-                      onChange={(e) => setMeetingTime(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="meeting-purpose">Purpose</Label>
-                    <Textarea
-                      id="meeting-purpose"
-                      placeholder="What would you like to discuss in this meeting?"
-                      value={meetingPurpose}
-                      onChange={(e) => setMeetingPurpose(e.target.value)}
-                    />
-                  </div>
-                  
-                  <Button className="w-full" onClick={scheduleMeeting}>
-                    Schedule Meeting
-                  </Button>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upcoming Meetings</CardTitle>
-                  <CardDescription>Your scheduled onboarding sessions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {renderUpcomingMeetings()}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="documents" className="mt-0">
+                  {renderDocumentsTabContent()}
+                </TabsContent>
+                
+                <TabsContent value="schedule" className="mt-0">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Schedule a Meeting</CardTitle>
+                      <CardDescription>Request a meeting with your HR manager</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Select Date</Label>
+                            <div className="border rounded-md p-2 flex justify-center">
+                              <CalendarComponent
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={setSelectedDate}
+                                initialFocus
+                                disabled={(date) => date < new Date() || date > addDays(new Date(), 30)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="portal-meeting-time">Time</Label>
+                            <Input
+                              id="portal-meeting-time"
+                              type="time"
+                              value={meetingTime}
+                              onChange={(e) => setMeetingTime(e.target.value)}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="portal-meeting-purpose">Purpose</Label>
+                            <Textarea
+                              id="portal-meeting-purpose"
+                              placeholder="What would you like to discuss?"
+                              value={meetingPurpose}
+                              onChange={(e) => setMeetingPurpose(e.target.value)}
+                              rows={4}
+                            />
+                          </div>
+                          
+                          <div className="pt-4">
+                            <Button 
+                              className="w-full" 
+                              onClick={scheduleMeeting}
+                              disabled={!selectedDate || !meetingPurpose.trim()}
+                            >
+                              <CalendarCheck className="h-4 w-4 mr-2" />
+                              Schedule Meeting
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </div>
+            </Tabs>
+          </CardFooter>
+        </Card>
       </main>
     </div>
   );
