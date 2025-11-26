@@ -1,20 +1,22 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { parseResume, analyzeCandidate } from "@/lib/openai";
-import { Loader2, Upload, FileText, CheckCircle } from "lucide-react";
+import { parseResume, analyzeCandidate, ParsedResume, CandidateAnalysis } from "@/lib/openai";
+import { Loader2, Upload, FileText, CheckCircle, Save } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const ResumeParser = () => {
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
-  const [parsedData, setParsedData] = useState<any>(null);
-  const [analysis, setAnalysis] = useState<string>("");
+  const [parsedData, setParsedData] = useState<ParsedResume | null>(null);
+  const [analysis, setAnalysis] = useState<CandidateAnalysis | null>(null);
+  const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
       setParsedData(null);
-      setAnalysis("");
+      setAnalysis(null);
     }
   };
 
@@ -28,9 +30,25 @@ const ResumeParser = () => {
       setAnalysis(aiAnalysis);
     } catch (error) {
       console.error("Error parsing resume:", error);
+      toast({
+          title: "Error",
+          description: "Failed to parse resume.",
+          variant: "destructive"
+      });
     } finally {
       setParsing(false);
     }
+  };
+
+  const handleCreateProfile = () => {
+      // Mock API call to create candidate
+      toast({
+          title: "Success",
+          description: "Candidate profile created successfully.",
+      });
+      setFile(null);
+      setParsedData(null);
+      setAnalysis(null);
   };
 
   return (
@@ -66,7 +84,7 @@ const ResumeParser = () => {
       </Card>
 
       {parsedData && (
-        <Card>
+        <Card className="animate-in fade-in slide-in-from-bottom-2">
           <CardHeader>
             <CardTitle>Candidate Profile</CardTitle>
             <CardDescription>Extracted information</CardDescription>
@@ -79,38 +97,53 @@ const ResumeParser = () => {
                 <div>
                     <h3 className="font-semibold text-lg">{parsedData.name}</h3>
                     <p className="text-sm text-gray-500">{parsedData.email} • {parsedData.phone}</p>
+                    {parsedData.linkedin && <p className="text-xs text-blue-500">{parsedData.linkedin}</p>}
                 </div>
             </div>
             
             <div>
-                <h4 className="font-medium mb-2">Skills</h4>
+                <h4 className="font-medium mb-2 text-sm text-gray-700">Skills</h4>
                 <div className="flex flex-wrap gap-2">
                     {parsedData.skills.map((skill: string, i: number) => (
-                        <span key={i} className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">{skill}</span>
+                        <span key={i} className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full border border-gray-200">{skill}</span>
                     ))}
                 </div>
             </div>
 
             <div>
-                <h4 className="font-medium mb-2">Experience</h4>
-                 {parsedData.experience.map((exp: any, i: number) => (
-                    <div key={i} className="mb-2">
+                <h4 className="font-medium mb-2 text-sm text-gray-700">Experience</h4>
+                 {parsedData.experience.map((exp, i) => (
+                    <div key={i} className="mb-3 last:mb-0">
                         <p className="font-medium text-sm">{exp.title}</p>
                         <p className="text-xs text-gray-500">{exp.company} • {exp.duration}</p>
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{exp.description}</p>
                     </div>
                 ))}
             </div>
 
              {analysis && (
-                <div className="bg-blue-50 p-4 rounded-lg mt-4 border border-blue-100">
-                    <h4 className="font-medium text-blue-900 mb-1 flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" /> AI Analysis
-                    </h4>
-                    <p className="text-sm text-blue-800">{analysis}</p>
+                <div className="bg-blue-50 p-4 rounded-lg mt-4 border border-blue-100 space-y-2">
+                    <div className="flex justify-between items-center">
+                         <h4 className="font-medium text-blue-900 flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4" /> AI Analysis
+                        </h4>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                            analysis.recommendation === 'Strong Hire' || analysis.recommendation === 'Hire' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                            {analysis.recommendation} ({analysis.matchScore}%)
+                        </span>
+                    </div>
+                    <p className="text-sm text-blue-800">{analysis.reasoning}</p>
+                    <div className="text-xs text-blue-700">
+                        <strong>Strengths:</strong> {analysis.strengths.join(", ")}
+                    </div>
                 </div>
             )}
             
-            <Button className="w-full mt-4" variant="outline">Create Candidate Profile</Button>
+            <Button className="w-full mt-4" onClick={handleCreateProfile}>
+                <Save className="mr-2 h-4 w-4" />
+                Create Candidate Profile
+            </Button>
           </CardContent>
         </Card>
       )}

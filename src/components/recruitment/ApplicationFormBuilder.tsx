@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Save, Eye } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Question {
     id: number;
@@ -15,6 +16,7 @@ const ApplicationFormBuilder = () => {
   const [questions, setQuestions] = useState<Question[]>([
       { id: 1, text: "Are you authorized to work in this country?", isKnockout: true }
   ]);
+  const { toast } = useToast();
 
   const addQuestion = () => {
       setQuestions([...questions, { id: Date.now(), text: "", isKnockout: false }]);
@@ -26,6 +28,13 @@ const ApplicationFormBuilder = () => {
 
   const updateQuestion = (id: number, field: keyof Question, value: any) => {
       setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
+  };
+
+  const handleSave = () => {
+      toast({
+          title: "Form Saved",
+          description: "Application form configuration has been updated.",
+      });
   };
 
   return (
@@ -64,8 +73,12 @@ const ApplicationFormBuilder = () => {
         </Button>
 
         <div className="flex justify-end gap-2 pt-4">
-            <Button variant="ghost">Preview</Button>
-            <Button>Save Form</Button>
+            <Button variant="ghost">
+                <Eye className="mr-2 h-4 w-4" /> Preview
+            </Button>
+            <Button onClick={handleSave}>
+                <Save className="mr-2 h-4 w-4" /> Save Form
+            </Button>
         </div>
       </CardContent>
     </Card>
