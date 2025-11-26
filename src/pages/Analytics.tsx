@@ -1,10 +1,12 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import BackButton from "@/components/common/BackButton";
 import { BarChart, LineChart, PieChart } from "lucide-react";
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell, LineChart as RechartsLineChart, Line, CartesianGrid } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const onboardingData = [
   { month: 'Jan', completed: 5, active: 12, new: 8 },
@@ -15,6 +17,7 @@ const onboardingData = [
   { month: 'Jun', completed: 7, active: 9, new: 6 },
 ];
 
+/*
 const statusData = [
   { name: 'Pending', value: 14, color: '#f59e0b' },
   { name: 'Active', value: 28, color: '#10b981' },
@@ -29,6 +32,7 @@ const departmentData = [
   { name: 'Finance', employees: 10 },
   { name: 'Operations', employees: 12 },
 ];
+*/
 
 const progressData = [
   { day: 1, completion: 10 },
@@ -41,6 +45,57 @@ const progressData = [
 ];
 
 const Analytics = () => {
+  const { user } = useAuth();
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [statusData, setStatusData] = useState<{name: string, value: number, color: string}[]>([
+    { name: 'Pending', value: 0, color: '#f59e0b' },
+    { name: 'Active', value: 0, color: '#10b981' },
+    { name: 'Completed', value: 0, color: '#3b82f6' },
+  ]);
+  const [roleData, setRoleData] = useState<{name: string, employees: number}[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('hr_id', user.id);
+        
+      if (data) {
+        setEmployees(data);
+        
+        // Process status data
+        const pending = data.filter(e => e.status === 'pending').length;
+        const active = data.filter(e => e.status === 'active').length;
+        const completed = data.filter(e => e.status === 'completed').length;
+        
+        setStatusData([
+          { name: 'Pending', value: pending, color: '#f59e0b' },
+          { name: 'Active', value: active, color: '#10b981' },
+          { name: 'Completed', value: completed, color: '#3b82f6' },
+        ]);
+
+        // Process role data
+        const roles: Record<string, number> = {};
+        data.forEach(e => {
+            roles[e.role] = (roles[e.role] || 0) + 1;
+        });
+        
+        setRoleData(Object.keys(roles).map(role => ({
+            name: role,
+            employees: roles[role]
+        })));
+      }
+    };
+    
+    fetchData();
+  }, [user]);
+
+  const totalEmployees = employees.length;
+  const activeOnboarding = employees.filter(e => e.status !== 'completed').length;
+
   return (
     <div className="container mx-auto p-6">
       <BackButton to="/" label="Back to Dashboard" />
@@ -70,8 +125,8 @@ const Analytics = () => {
                     <CardTitle className="text-lg">Total Employees</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">85</div>
-                    <p className="text-sm text-muted-foreground">+12% from last month</p>
+                    <div className="text-3xl font-bold">{totalEmployees}</div>
+                    <p className="text-sm text-muted-foreground">Registered in system</p>
                   </CardContent>
                 </Card>
                 
@@ -80,8 +135,8 @@ const Analytics = () => {
                     <CardTitle className="text-lg">Active Onboarding</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">28</div>
-                    <p className="text-sm text-muted-foreground">-4% from last month</p>
+                    <div className="text-3xl font-bold">{activeOnboarding}</div>
+                    <p className="text-sm text-muted-foreground">Pending or Active</p>
                   </CardContent>
                 </Card>
                 
@@ -210,14 +265,14 @@ const Analytics = () => {
             <TabsContent value="departments" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Employees by Department</CardTitle>
-                  <CardDescription>Distribution of employees across departments</CardDescription>
+                  <CardTitle>Employees by Role</CardTitle>
+                  <CardDescription>Distribution of employees across roles</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[350px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsBarChart
-                        data={departmentData}
+                        data={roleData}
                         layout="vertical"
                         margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                       >

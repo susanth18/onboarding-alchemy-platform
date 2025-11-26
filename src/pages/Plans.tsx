@@ -14,18 +14,8 @@ import { CheckCircle, Clock, CalendarCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import BackButton from "@/components/common/BackButton";
-
-type MilestoneType = {
-  id: number;
-  text: string;
-  completed: boolean;
-  notes: string;
-};
-
-type MilestonePeriod = {
-  title: string;
-  milestones: MilestoneType[];
-};
+import { Milestone, MilestonePeriod } from "@/types";
+import { getMilestonePlan, saveMilestonePlan, defaultMilestonePlan } from "@/lib/milestones";
 
 const Plans = () => {
   const { user } = useAuth();
@@ -34,39 +24,27 @@ const Plans = () => {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
-  const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>([
-    {
-      title: "First 30 Days",
-      milestones: [
-        { id: 1, text: "Complete company orientation", completed: false, notes: "" },
-        { id: 2, text: "Meet with team members", completed: false, notes: "" },
-        { id: 3, text: "Set up workstation and tools", completed: false, notes: "" },
-        { id: 4, text: "Review job description and responsibilities", completed: false, notes: "" },
-      ]
-    },
-    {
-      title: "60 Days",
-      milestones: [
-        { id: 5, text: "Complete first project", completed: false, notes: "" },
-        { id: 6, text: "Participate in team meeting", completed: false, notes: "" },
-        { id: 7, text: "Complete required training modules", completed: false, notes: "" },
-      ]
-    },
-    {
-      title: "90 Days",
-      milestones: [
-        { id: 8, text: "First performance review", completed: false, notes: "" },
-        { id: 9, text: "Set long-term goals", completed: false, notes: "" },
-        { id: 10, text: "Present onboarding feedback", completed: false, notes: "" },
-      ]
-    }
-  ]);
+  const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>(defaultMilestonePlan);
 
   useEffect(() => {
     if (user) {
       fetchEmployees();
     }
   }, [user]);
+
+  useEffect(() => {
+    const loadPlan = async () => {
+      if (selectedEmployee) {
+        const plan = await getMilestonePlan(selectedEmployee);
+        if (plan) {
+          setMilestonePlan(plan);
+        } else {
+          setMilestonePlan(defaultMilestonePlan);
+        }
+      }
+    };
+    loadPlan();
+  }, [selectedEmployee]);
 
   const fetchEmployees = async () => {
     try {
@@ -109,10 +87,28 @@ const Plans = () => {
     setMilestonePlan(newMilestonePlan);
   };
 
-  const calculateProgress = (milestones: MilestoneType[]) => {
+  const calculateProgress = (milestones: Milestone[]) => {
     if (milestones.length === 0) return 0;
     const completed = milestones.filter(m => m.completed).length;
     return Math.round((completed / milestones.length) * 100);
+  };
+
+  const handleSavePlan = async () => {
+    if (!selectedEmployee) return;
+    
+    const success = await saveMilestonePlan(selectedEmployee, milestonePlan);
+    if (success) {
+      toast({
+        title: "Plan Saved",
+        description: "The onboarding plan has been saved successfully.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to save the onboarding plan.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -307,7 +303,7 @@ const Plans = () => {
                         <h3 className="text-xl font-semibold">
                           {employees.find(e => e.id === selectedEmployee)?.name}'s 30-60-90 Day Plan
                         </h3>
-                        <Button>Save Plan</Button>
+                        <Button onClick={handleSavePlan}>Save Plan</Button>
                       </div>
                       
                       <div className="space-y-8">
