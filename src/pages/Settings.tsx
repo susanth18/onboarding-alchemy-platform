@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import BackButton from "@/components/common/BackButton";
 import { Settings as SettingsIcon, User, Bell, Lock, Mail, Globe, HelpCircle, SaveIcon } from "lucide-react";
@@ -14,23 +14,77 @@ import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("profile");
   const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState({
+    firstName: "",
+    lastName: "",
+    company: "",
+    position: ""
+  });
 
-  const handleSave = () => {
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('hr_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+        
+      if (data) {
+        const names = data.name.split(' ');
+        setProfile({
+          firstName: names[0] || "",
+          lastName: names.slice(1).join(' ') || "",
+          company: data.company || "",
+          position: data.position || ""
+        });
+      }
+    };
+    fetchProfile();
+  }, [user]);
+
+  const handleProfileChange = (key: string, value: string) => {
+    setProfile(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
     setSaving(true);
     
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const { error } = await supabase
+        .from('hr_profiles')
+        .update({
+          name: `${profile.firstName} ${profile.lastName}`.trim(),
+          company: profile.company,
+          position: profile.position
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
       toast({
         title: "Settings saved",
         description: "Your settings have been saved successfully",
       });
-    }, 1000);
+    } catch (error: any) {
+      console.error("Error saving profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -124,35 +178,51 @@ const Settings = () => {
                   <Separator />
                   
                   <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="first-name">First Name</Label>
-                        <Input id="first-name" defaultValue="John" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="last-name">Last Name</Label>
-                        <Input id="last-name" defaultValue="Doe" />
-                      </div>
-                    </div>
-                    
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" defaultValue={user?.email || ""} type="email" disabled />
-                      <p className="text-xs text-muted-foreground">
-                        Your email is used for login and cannot be changed
-                      </p>
+                      <Label htmlFor="first-name">First Name</Label>
+                      <Input
+                        id="first-name"
+                        value={profile.firstName}
+                        onChange={(e) => handleProfileChange('firstName', e.target.value)}
+                      />
                     </div>
-                    
                     <div className="space-y-2">
-                      <Label htmlFor="company">Company</Label>
-                      <Input id="company" defaultValue="Acme Inc" />
+                      <Label htmlFor="last-name">Last Name</Label>
+                      <Input
+                        id="last-name"
+                        value={profile.lastName}
+                        onChange={(e) => handleProfileChange('lastName', e.target.value)}
+                      />
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="position">Position</Label>
-                      <Input id="position" defaultValue="HR Manager" />
-                    </div>
-                    
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" defaultValue={user?.email || ""} type="email" disabled />
+                    <p className="text-xs text-muted-foreground">
+                      Your email is used for login and cannot be changed
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company</Label>
+                    <Input
+                      id="company"
+                      value={profile.company}
+                      onChange={(e) => handleProfileChange('company', e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="position">Position</Label>
+                    <Input
+                      id="position"
+                      value={profile.position}
+                      onChange={(e) => handleProfileChange('position', e.target.value)}
+                    />
+                  </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="timezone">Timezone</Label>
                       <Select defaultValue="utc">

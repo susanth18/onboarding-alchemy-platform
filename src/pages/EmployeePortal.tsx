@@ -20,19 +20,8 @@ import { format, addDays } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Meeting } from "@/types";
-
-type MilestoneType = {
-  id: number;
-  text: string;
-  completed: boolean;
-  notes: string;
-};
-
-type MilestonePeriod = {
-  title: string;
-  milestones: MilestoneType[];
-};
+import { Meeting, MilestonePeriod } from "@/types";
+import { getMilestonePlan, saveMilestonePlan, defaultMilestonePlan } from "@/lib/milestones";
 
 const EmployeePortal = () => {
   const navigate = useNavigate();
@@ -56,33 +45,7 @@ const EmployeePortal = () => {
   const [completedTasks, setCompletedTasks] = useState<number>(0);
   const [totalTasks, setTotalTasks] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<string>("dashboard");
-  const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>([
-    {
-      title: "First 30 Days",
-      milestones: [
-        { id: 1, text: "Complete company orientation", completed: false, notes: "" },
-        { id: 2, text: "Meet with team members", completed: false, notes: "" },
-        { id: 3, text: "Set up workstation and tools", completed: false, notes: "" },
-        { id: 4, text: "Review job description and responsibilities", completed: false, notes: "" },
-      ]
-    },
-    {
-      title: "60 Days",
-      milestones: [
-        { id: 5, text: "Complete first project", completed: false, notes: "" },
-        { id: 6, text: "Participate in team meeting", completed: false, notes: "" },
-        { id: 7, text: "Complete required training modules", completed: false, notes: "" },
-      ]
-    },
-    {
-      title: "90 Days",
-      milestones: [
-        { id: 8, text: "First performance review", completed: false, notes: "" },
-        { id: 9, text: "Set long-term goals", completed: false, notes: "" },
-        { id: 10, text: "Present onboarding feedback", completed: false, notes: "" },
-      ]
-    }
-  ]);
+  const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>(defaultMilestonePlan);
 
   useEffect(() => {
     if (!user) {
@@ -172,6 +135,16 @@ const EmployeePortal = () => {
             setMeetings(formattedMeetings);
           }
         }
+
+        // Load milestone plan
+        const plan = await getMilestonePlan(employeeData.id);
+        if (plan) {
+          console.log("Milestone plan loaded:", plan);
+          setMilestonePlan(plan);
+        } else {
+          console.log("No milestone plan found, using default");
+          setMilestonePlan(defaultMilestonePlan);
+        }
       } catch (error: any) {
         console.error('Error loading employee data:', error);
         toast({
@@ -211,29 +184,26 @@ const EmployeePortal = () => {
     
     setMilestonePlan(newMilestonePlan);
     
+    // Save to backend
+    if (employeeData?.id) {
+      await saveMilestonePlan(employeeData.id, newMilestonePlan);
+    }
+    
     toast({
       title: milestone.completed ? "Task completed" : "Task marked as incomplete",
       description: `"${milestone.text}" has been updated`
     });
-
-    console.log("Would save milestone update to Supabase:", {
-      employee_id: employeeData?.id,
-      milestone_id: milestone.id,
-      completed: milestone.completed,
-      notes: milestone.notes
-    });
   };
 
-  const updateMilestoneNotes = (periodIndex: number, milestoneIndex: number, notes: string) => {
+  const updateMilestoneNotes = async (periodIndex: number, milestoneIndex: number, notes: string) => {
     const newMilestonePlan = [...milestonePlan];
     newMilestonePlan[periodIndex].milestones[milestoneIndex].notes = notes;
     setMilestonePlan(newMilestonePlan);
 
-    console.log("Would save milestone notes to Supabase:", {
-      employee_id: employeeData?.id,
-      milestone_id: newMilestonePlan[periodIndex].milestones[milestoneIndex].id,
-      notes: notes
-    });
+    // Save to backend
+    if (employeeData?.id) {
+      await saveMilestonePlan(employeeData.id, newMilestonePlan);
+    }
   };
 
   const scheduleMeeting = async () => {

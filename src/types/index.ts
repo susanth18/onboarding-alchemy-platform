@@ -34,3 +34,15 @@ export interface Meeting {
   status: 'scheduled' | 'completed' | 'cancelled';
   created_at?: string;
 }
+
+export interface Milestone {
+  id: number;
+  text: string;
+  completed: boolean;
+  notes: string;
+}
+
+export interface MilestonePeriod {
+  title: string;
+  milestones: Milestone[];
+}
