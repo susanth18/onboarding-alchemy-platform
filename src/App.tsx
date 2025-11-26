@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Auth from "./pages/Auth";
+// import Auth from "./pages/Auth";
 import Employees from "./pages/Employees";
 import EmployeeDetails from "./pages/EmployeeDetails";
 import Profile from "./pages/Profile";
@@ -32,7 +32,7 @@ const App = () => (
             <Sonner />
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
+              {/* <Route path="/auth" element={<Auth />} /> */}
               <Route path="/employees" element={<Employees />} />
               <Route path="/employees/:id" element={<EmployeeDetails />} />
               <Route path="/profile" element={<Profile />} />

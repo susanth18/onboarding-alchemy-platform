@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import BackButton from "@/components/common/BackButton";
@@ -7,33 +6,9 @@ import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, T
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { format, subMonths } from "date-fns";
 
-const onboardingData = [
-  { month: 'Jan', completed: 5, active: 12, new: 8 },
-  { month: 'Feb', completed: 8, active: 10, new: 6 },
-  { month: 'Mar', completed: 6, active: 14, new: 9 },
-  { month: 'Apr', completed: 12, active: 8, new: 5 },
-  { month: 'May', completed: 10, active: 7, new: 4 },
-  { month: 'Jun', completed: 7, active: 9, new: 6 },
-];
-
-/*
-const statusData = [
-  { name: 'Pending', value: 14, color: '#f59e0b' },
-  { name: 'Active', value: 28, color: '#10b981' },
-  { name: 'Completed', value: 18, color: '#3b82f6' },
-];
-
-const departmentData = [
-  { name: 'Engineering', employees: 22 },
-  { name: 'Marketing', employees: 18 },
-  { name: 'HR', employees: 8 },
-  { name: 'Sales', employees: 15 },
-  { name: 'Finance', employees: 10 },
-  { name: 'Operations', employees: 12 },
-];
-*/
-
+// Keep progress data hardcoded for now as it requires complex storage scanning
 const progressData = [
   { day: 1, completion: 10 },
   { day: 15, completion: 25 },
@@ -47,16 +22,19 @@ const progressData = [
 const Analytics = () => {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<any[]>([]);
+  const [onboardingData, setOnboardingData] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<{name: string, value: number, color: string}[]>([
     { name: 'Pending', value: 0, color: '#f59e0b' },
     { name: 'Active', value: 0, color: '#10b981' },
     { name: 'Completed', value: 0, color: '#3b82f6' },
   ]);
   const [roleData, setRoleData] = useState<{name: string, employees: number}[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
+      setLoading(true);
       
       const { data } = await supabase
         .from('employees')
@@ -87,7 +65,39 @@ const Analytics = () => {
             name: role,
             employees: roles[role]
         })));
+
+        // Process onboarding data (last 6 months)
+        const last6Months = Array.from({ length: 6 }, (_, i) => {
+            const d = subMonths(new Date(), 5 - i);
+            return {
+                month: format(d, 'MMM'),
+                monthIdx: d.getMonth(),
+                year: d.getFullYear(),
+                new: 0,
+                active: 0,
+                completed: 0
+            };
+        });
+
+        data.forEach(e => {
+            const d = new Date(e.created_at);
+            const monthIdx = d.getMonth();
+            const year = d.getFullYear();
+            
+            const monthData = last6Months.find(m => m.monthIdx === monthIdx && m.year === year);
+            if (monthData) {
+                monthData.new += 1;
+                if (e.status === 'completed') {
+                    monthData.completed += 1;
+                } else {
+                    monthData.active += 1;
+                }
+            }
+        });
+
+        setOnboardingData(last6Months);
       }
+      setLoading(false);
     };
     
     fetchData();
@@ -95,6 +105,14 @@ const Analytics = () => {
 
   const totalEmployees = employees.length;
   const activeOnboarding = employees.filter(e => e.status !== 'completed').length;
+
+  if (loading) {
+     return (
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin h-8 w-8 border-4 border-primary rounded-full border-t-transparent"></div>
+        </div>
+      );
+  }
 
   return (
     <div className="container mx-auto p-6">
@@ -145,15 +163,15 @@ const Analytics = () => {
                     <CardTitle className="text-lg">Avg. Completion Time</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">82 days</div>
-                    <p className="text-sm text-muted-foreground">-3 days from last quarter</p>
+                    <div className="text-3xl font-bold">-- days</div>
+                    <p className="text-sm text-muted-foreground">Not enough data</p>
                   </CardContent>
                 </Card>
               </div>
               
               <Card>
                 <CardHeader>
-                  <CardTitle>Onboarding Status</CardTitle>
+                  <CardTitle>Onboarding Status (Last 6 Months)</CardTitle>
                   <CardDescription>Monthly breakdown of employee onboarding status</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -204,59 +222,14 @@ const Analytics = () => {
                   </CardContent>
                 </Card>
                 
+                {/* Keep hardcoded for now or remove if strictly needed */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Top Challenges</CardTitle>
                     <CardDescription>Reported onboarding challenges</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-4">
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Access to Systems</span>
-                          <span className="text-sm">32%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-primary h-full" style={{ width: "32%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Role Clarity</span>
-                          <span className="text-sm">24%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-primary h-full" style={{ width: "24%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Training Resources</span>
-                          <span className="text-sm">18%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-primary h-full" style={{ width: "18%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Team Integration</span>
-                          <span className="text-sm">15%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-primary h-full" style={{ width: "15%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Communication</span>
-                          <span className="text-sm">11%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-primary h-full" style={{ width: "11%" }}></div>
-                        </div>
-                      </li>
-                    </ul>
+                    <p className="text-center text-muted-foreground py-10">Data not available yet</p>
                   </CardContent>
                 </Card>
               </div>
@@ -286,105 +259,14 @@ const Analytics = () => {
                 </CardContent>
               </Card>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Onboarding Speed by Department</CardTitle>
-                    <CardDescription>Average days to complete onboarding</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-4">
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Engineering</span>
-                          <span className="text-sm">92 days</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-blue-500 h-full" style={{ width: "92%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Marketing</span>
-                          <span className="text-sm">78 days</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-green-500 h-full" style={{ width: "78%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">HR</span>
-                          <span className="text-sm">65 days</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-purple-500 h-full" style={{ width: "65%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Sales</span>
-                          <span className="text-sm">85 days</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-yellow-500 h-full" style={{ width: "85%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Finance</span>
-                          <span className="text-sm">88 days</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-red-500 h-full" style={{ width: "88%" }}></div>
-                        </div>
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Department Growth</CardTitle>
-                    <CardDescription>Year-over-year change</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-4">
-                      <li className="flex justify-between items-center py-2 border-b">
-                        <span className="font-medium">Engineering</span>
-                        <span className="text-green-600">+15%</span>
-                      </li>
-                      <li className="flex justify-between items-center py-2 border-b">
-                        <span className="font-medium">Marketing</span>
-                        <span className="text-green-600">+8%</span>
-                      </li>
-                      <li className="flex justify-between items-center py-2 border-b">
-                        <span className="font-medium">HR</span>
-                        <span className="text-green-600">+3%</span>
-                      </li>
-                      <li className="flex justify-between items-center py-2 border-b">
-                        <span className="font-medium">Sales</span>
-                        <span className="text-green-600">+12%</span>
-                      </li>
-                      <li className="flex justify-between items-center py-2 border-b">
-                        <span className="font-medium">Finance</span>
-                        <span className="text-red-600">-2%</span>
-                      </li>
-                      <li className="flex justify-between items-center py-2">
-                        <span className="font-medium">Operations</span>
-                        <span className="text-green-600">+5%</span>
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
+             
             </TabsContent>
             
             <TabsContent value="progress" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Onboarding Progress Curve</CardTitle>
-                  <CardDescription>Average completion percentage over 90 days</CardDescription>
+                  <CardDescription>Target progress curve</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[350px]">
@@ -407,94 +289,6 @@ const Analytics = () => {
                   </div>
                 </CardContent>
               </Card>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Milestone Completion Rate</CardTitle>
-                    <CardDescription>Percentage of employees completing key milestones</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-4">
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Company Orientation</span>
-                          <span className="text-sm">98%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-green-500 h-full" style={{ width: "98%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Team Introduction</span>
-                          <span className="text-sm">95%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-green-500 h-full" style={{ width: "95%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Training Completion</span>
-                          <span className="text-sm">76%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-yellow-500 h-full" style={{ width: "76%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">First Project</span>
-                          <span className="text-sm">68%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-yellow-500 h-full" style={{ width: "68%" }}></div>
-                        </div>
-                      </li>
-                      <li className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Performance Review</span>
-                          <span className="text-sm">52%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="bg-red-500 h-full" style={{ width: "52%" }}></div>
-                        </div>
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Time to Complete</CardTitle>
-                    <CardDescription>Average days to complete onboarding phase</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-4">
-                      <li className="flex justify-between items-center py-2 border-b">
-                        <span className="font-medium">First 30 Days</span>
-                        <span>28 days</span>
-                      </li>
-                      <li className="flex justify-between items-center py-2 border-b">
-                        <span className="font-medium">60 Days</span>
-                        <span>35 days</span>
-                      </li>
-                      <li className="flex justify-between items-center py-2">
-                        <span className="font-medium">90 Days</span>
-                        <span>22 days</span>
-                      </li>
-                    </ul>
-                    
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium mb-2">Insights</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Employees are completing the first 30 days slightly ahead of schedule, but the 60-day phase is taking longer than expected. Consider reviewing the milestones in the 60-day phase.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

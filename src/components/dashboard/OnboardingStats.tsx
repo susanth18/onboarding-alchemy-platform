@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Users, FileText, CheckSquare, CalendarClock }
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getTasks } from "@/lib/tasks";
 
 interface StatCardProps {
   title: string;
@@ -57,7 +58,8 @@ const OnboardingStats: React.FC = () => {
   const [stats, setStats] = useState({
     activeOnboardings: 0,
     documentsPending: 0,
-    scheduledMeetings: 0
+    scheduledMeetings: 0,
+    taskCompletionRate: 0
   });
 
   useEffect(() => {
@@ -86,10 +88,17 @@ const OnboardingStats: React.FC = () => {
           .eq('hr_id', user.id)
           .eq('status', 'scheduled');
 
+        // Fetch tasks for completion rate
+        const tasks = await getTasks(user.id);
+        const completedTasks = tasks.filter(t => t.completed).length;
+        const totalTasks = tasks.length;
+        const taskRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
         setStats({
           activeOnboardings: active,
           documentsPending: pendingDocs,
-          scheduledMeetings: count || 0
+          scheduledMeetings: count || 0,
+          taskCompletionRate: taskRate
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -105,7 +114,7 @@ const OnboardingStats: React.FC = () => {
         title="Active Onboardings"
         value={stats.activeOnboardings}
         subtitle="Employees in process"
-        change={{ value: 8, isPositive: true }}
+        // change={{ value: 8, isPositive: true }}
         icon={<Users size={24} className="text-hr-blue" />}
         color="bg-blue-50"
       />
@@ -114,15 +123,15 @@ const OnboardingStats: React.FC = () => {
         title="Documents Pending"
         value={stats.documentsPending}
         subtitle="Employees with missing docs"
-        change={{ value: 5, isPositive: false }}
+        // change={{ value: 5, isPositive: false }}
         icon={<FileText size={24} className="text-hr-amber" />}
         color="bg-amber-50"
       />
       
       <StatCard
-        title="Completed Tasks"
-        value="--"
-        subtitle="Overall completion rate"
+        title="Tasks Completed"
+        value={`${stats.taskCompletionRate}%`}
+        subtitle="HR task completion rate"
         icon={<CheckSquare size={24} className="text-hr-teal" />}
         color="bg-teal-50"
       />

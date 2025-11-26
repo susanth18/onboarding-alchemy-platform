@@ -16,197 +16,65 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Dummy user for development - bypassing auth
+const DUMMY_USER: User = {
+  id: "11111111-1111-1111-1111-111111111111",
+  app_metadata: {},
+  user_metadata: { role: 'hr' },
+  aud: "authenticated",
+  created_at: new Date().toISOString(),
+  email: "demo@example.com",
+  phone: ""
+} as User;
+
+const DUMMY_SESSION: Session = {
+  access_token: "dummy_token",
+  token_type: "bearer",
+  expires_in: 3600,
+  refresh_token: "dummy_refresh_token",
+  user: DUMMY_USER
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [userRole, setUserRole] = useState<'hr' | 'employee' | null>(null);
+  const [user, setUser] = useState<User | null>(DUMMY_USER);
+  const [session, setSession] = useState<Session | null>(DUMMY_SESSION);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<'hr' | 'employee' | null>('hr');
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Auth state change event:", event);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (event === 'SIGNED_IN') {
-          toast({
-            title: "Signed in successfully",
-            description: "Welcome to HR Onboarding Portal",
-          });
-
-          // Check user role in a separate function to avoid Supabase deadlock
-          if (session?.user) {
-            setTimeout(() => {
-              checkUserRole(session.user);
-            }, 0);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          toast({
-            title: "Signed out successfully",
-            description: "You have been signed out",
-          });
-          setUserRole(null);
-          navigate('/auth');
-        }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        checkUserRole(session.user);
-      } else {
-        setIsLoading(false);
-        // If no session and not on auth page, redirect to auth
-        if (location.pathname !== '/auth') {
-          navigate('/auth');
-        }
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, location.pathname]);
-
-  const checkUserRole = async (user: User) => {
-    try {
-      console.log("Checking user role for:", user.email);
-      
-      // First check the user_metadata as it's the fastest way to determine role
-      if (user.user_metadata && user.user_metadata.role === 'employee') {
-        console.log("User is an employee (from metadata)");
-        setUserRole('employee');
-        
-        // Check if employee exists in database
-        const { data: employeeData } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('email', user.email)
-          .maybeSingle();
-          
-        // Only redirect if not already on employee portal
-        if (location.pathname === '/auth' || !location.pathname.includes('/employee-portal')) {
-          navigate('/employee-portal');
-        }
-        setIsLoading(false);
-        return;
-      }
-      
-      // Check if user is an HR (has an hr_profile)
-      const { data: hrProfile, error: hrError } = await supabase
-        .from('hr_profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      if (hrProfile) {
-        console.log("User is HR manager");
-        setUserRole('hr');
-        
-        // Only redirect if not already on a valid HR path
-        if (location.pathname === '/auth' || location.pathname === '/employee-portal') {
-          navigate('/');
-        }
-        setIsLoading(false);
-        return;
-      }
-      
-      // Check if user is an employee
-      const { data: employeeData, error: empError } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle();
-        
-      if (employeeData) {
-        console.log("User is an employee");
-        setUserRole('employee');
-        
-        // Only redirect if not already on employee portal
-        if (location.pathname === '/auth' || !location.pathname.includes('/employee-portal')) {
-          navigate('/employee-portal');
-        }
-        setIsLoading(false);
-        return;
-      }
-      
-      console.log("User role not determined, using default");
-      // Default fallback for new users (assume HR for now)
-      setUserRole('hr');
-      if (location.pathname === '/auth') {
-        navigate('/');
-      }
-    } catch (error) {
-      console.error('Error checking user role:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // We are bypassing auth, so we just set the dummy user and role
+    setUser(DUMMY_USER);
+    setSession(DUMMY_SESSION);
+    setUserRole('hr');
+    setIsLoading(false);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
-    try {
-      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      
-      if (!data.user) {
-        throw new Error("Invalid login credentials");
-      }
-      
-      // Redirection will be handled by the useEffect
-    } catch (error: any) {
-      toast({
-        title: "Error signing in",
-        description: error.message,
-        variant: "destructive",
-      });
-      throw error; // Re-throw to let the form know there was an error
-    }
+    // Dummy implementation
+    toast({
+      title: "Signed in (Bypassed)",
+      description: "You are using the demo account.",
+    });
+    navigate('/');
   };
 
   const signUp = async (email: string, password: string, userData: any) => {
-    try {
-      const { error } = await supabase.auth.signUp({ 
-        email, 
-        password,
-        options: {
-          data: userData
-        }
-      });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Account created",
-        description: "Please verify your email to continue",
-      });
-      
-      navigate('/auth');
-    } catch (error: any) {
-      toast({
-        title: "Error signing up",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    // Dummy implementation
+    toast({
+      title: "Account created (Bypassed)",
+      description: "You are using the demo account.",
+    });
+    navigate('/');
   };
 
   const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-    } catch (error: any) {
-      toast({
-        title: "Error signing out",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    // Dummy implementation - maybe reload page or just do nothing
+    toast({
+      title: "Signed out",
+      description: "This is a demo, you cannot really sign out.",
+    });
   };
 
   return (

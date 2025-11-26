@@ -1,8 +1,10 @@
-
-import React from "react";
-import { CalendarClock, ArrowRight } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { CalendarClock, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/contexts/AuthContext";
+import { getTasks, saveTasks, Task } from "@/lib/tasks";
+import { toast } from "@/components/ui/use-toast";
 
 interface TaskItemProps {
   title: string;
@@ -48,20 +50,51 @@ const TaskItem: React.FC<TaskItemProps> = ({ title, deadline, priority, complete
 };
 
 const UpcomingTasks: React.FC = () => {
-  // In a real application, this would come from state/API
-  const [tasks, setTasks] = React.useState([
-    { id: 1, title: "Review Michael's 30-60-90 day plan", deadline: "Today, 5:00 PM", priority: "high", completed: false },
-    { id: 2, title: "Schedule orientation for new hires", deadline: "Tomorrow, 10:00 AM", priority: "medium", completed: true },
-    { id: 3, title: "Sign off on Q3 compliance documents", deadline: "Apr 15, 3:00 PM", priority: "high", completed: false },
-    { id: 4, title: "Prepare training materials for IT department", deadline: "Apr 16, 12:00 PM", priority: "medium", completed: false },
-    { id: 5, title: "Follow up on pending equipment requests", deadline: "Apr 18, 2:00 PM", priority: "low", completed: false },
-  ]);
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggleTaskCompletion = (taskId: number) => {
-    setTasks(tasks.map(task => 
+  useEffect(() => {
+    const fetchTasks = async () => {
+      if (!user) return;
+      setLoading(true);
+      const data = await getTasks(user.id);
+      setTasks(data);
+      setLoading(false);
+    };
+
+    fetchTasks();
+  }, [user]);
+
+  const toggleTaskCompletion = async (taskId: number) => {
+    if (!user) return;
+
+    const newTasks = tasks.map(task => 
       task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+    );
+    
+    setTasks(newTasks);
+    
+    // Save to backend
+    const success = await saveTasks(user.id, newTasks);
+    if (!success) {
+      toast({
+        title: "Error",
+        description: "Failed to save task update",
+        variant: "destructive"
+      });
+      // Revert if failed
+      setTasks(tasks); 
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="hr-card h-full flex justify-center items-center">
+         <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="hr-card h-full">
@@ -74,16 +107,20 @@ const UpcomingTasks: React.FC = () => {
       </div>
       
       <div>
-        {tasks.map((task) => (
-          <TaskItem
-            key={task.id}
-            title={task.title}
-            deadline={task.deadline}
-            priority={task.priority as "high" | "medium" | "low"}
-            completed={task.completed}
-            onToggle={() => toggleTaskCompletion(task.id)}
-          />
-        ))}
+        {tasks.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-4">No tasks found.</p>
+        ) : (
+          tasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              title={task.title}
+              deadline={task.deadline}
+              priority={task.priority}
+              completed={task.completed}
+              onToggle={() => toggleTaskCompletion(task.id)}
+            />
+          ))
+        )}
       </div>
     </div>
   );

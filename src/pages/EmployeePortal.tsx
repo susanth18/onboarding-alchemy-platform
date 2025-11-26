@@ -48,16 +48,16 @@ const EmployeePortal = () => {
   const [milestonePlan, setMilestonePlan] = useState<MilestonePeriod[]>(defaultMilestonePlan);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
+    // if (!user) {
+    //   navigate('/auth');
+    //   return;
+    // }
 
-    if (userRole !== 'employee') {
-      console.log("User is not an employee, redirecting to appropriate page");
-      navigate('/');
-      return;
-    }
+    // if (userRole !== 'employee') {
+    //   console.log("User is not an employee, redirecting to appropriate page");
+    //   // navigate('/');
+    //   // return;
+    // }
 
     const loadEmployeeData = async () => {
       try {
