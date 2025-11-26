@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
+const initDb = require('./initDb');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -8,12 +9,15 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const PORT = 3000;
-const SECRET_KEY = "super_secret_key";
+const PORT = process.env.PORT || 3000;
+const SECRET_KEY = process.env.SECRET_KEY || "super_secret_key";
 
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Initialize DB
+initDb();
 
 // Storage configuration
 const storage = multer.diskStorage({
@@ -31,56 +35,26 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Helper to wrap db.run in promise
-const run = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve(this);
-    });
-  });
-};
-
-// Helper to wrap db.all in promise
-const all = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
-};
-
-// Helper to wrap db.get in promise
-const get = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
+// Helper to wrap db.query
+const query = async (sql, params = []) => {
+  const res = await db.query(sql, params);
+  return res;
 };
 
 // AUTH
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  // For dummy auth, we accept any email/password if it matches a user or we create one?
-  // Actually, let's just check if it's the HR user we seeded or an employee.
   
   try {
-    // Check HR profiles (conceptually linked to auth users) - simulating auth
-    // In real app, we'd have a users table with passwords.
-    // Here we check if email matches a known employee or the dummy HR.
-    
     if (email === 'demo@example.com') {
       const user = { id: "11111111-1111-1111-1111-111111111111", role: 'hr', email };
       const token = jwt.sign(user, SECRET_KEY);
       return res.json({ user, session: { access_token: token } });
     }
 
-    const employee = await get("SELECT * FROM employees WHERE email = ?", [email]);
+    const result = await query("SELECT * FROM employees WHERE email = $1", [email]);
+    const employee = result.rows[0];
     if (employee) {
-        // Check temp password if needed, but for now allow login
         const user = { id: employee.id, role: 'employee', email };
         const token = jwt.sign(user, SECRET_KEY);
         return res.json({ user, session: { access_token: token } });
@@ -88,6 +62,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.status(401).json({ error: "Invalid credentials" });
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -99,13 +74,14 @@ app.get('/api/employees', async (req, res) => {
     let sql = "SELECT * FROM employees";
     let params = [];
     let conditions = [];
+    let paramIdx = 1;
     
     if (hr_id) {
-        conditions.push("hr_id = ?");
+        conditions.push(`hr_id = $${paramIdx++}`);
         params.push(hr_id);
     }
     if (email) {
-        conditions.push("email = ?");
+        conditions.push(`email = $${paramIdx++}`);
         params.push(email);
     }
     
@@ -114,8 +90,8 @@ app.get('/api/employees', async (req, res) => {
     }
     
     sql += " ORDER BY created_at DESC";
-    const rows = await all(sql, params);
-    res.json(rows);
+    const result = await query(sql, params);
+    res.json(result.rows);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -123,7 +99,8 @@ app.get('/api/employees', async (req, res) => {
 
 app.get('/api/employees/:id', async (req, res) => {
   try {
-    const row = await get("SELECT * FROM employees WHERE id = ?", [req.params.id]);
+    const result = await query("SELECT * FROM employees WHERE id = $1", [req.params.id]);
+    const row = result.rows[0];
     if (!row) return res.status(404).json({ error: "Not found" });
     res.json(row);
   } catch (e) {
@@ -135,13 +112,13 @@ app.post('/api/employees', async (req, res) => {
   try {
     const { hr_id, name, email, role, employee_id, phone } = req.body;
     const id = uuidv4();
-    await run(
+    await query(
       `INSERT INTO employees (id, hr_id, employee_id, name, email, role, phone, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')`,
       [id, hr_id, employee_id, name, email, role, phone]
     );
-    const newEmployee = await get("SELECT * FROM employees WHERE id = ?", [id]);
-    res.json(newEmployee);
+    const result = await query("SELECT * FROM employees WHERE id = $1", [id]);
+    res.json(result.rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -154,19 +131,20 @@ app.put('/api/employees/:id', async (req, res) => {
         // Construct dynamic update query
         let updates = [];
         let params = [];
+        let paramIdx = 1;
         
-        if (status !== undefined) { updates.push("status = ?"); params.push(status); }
-        if (email !== undefined) { updates.push("email = ?"); params.push(email); }
-        if (phone !== undefined) { updates.push("phone = ?"); params.push(phone); }
-        if (role !== undefined) { updates.push("role = ?"); params.push(role); }
-        if (name !== undefined) { updates.push("name = ?"); params.push(name); }
-        if (employee_id !== undefined) { updates.push("employee_id = ?"); params.push(employee_id); }
+        if (status !== undefined) { updates.push(`status = $${paramIdx++}`); params.push(status); }
+        if (email !== undefined) { updates.push(`email = $${paramIdx++}`); params.push(email); }
+        if (phone !== undefined) { updates.push(`phone = $${paramIdx++}`); params.push(phone); }
+        if (role !== undefined) { updates.push(`role = $${paramIdx++}`); params.push(role); }
+        if (name !== undefined) { updates.push(`name = $${paramIdx++}`); params.push(name); }
+        if (employee_id !== undefined) { updates.push(`employee_id = $${paramIdx++}`); params.push(employee_id); }
         
         if (updates.length === 0) return res.json({ success: true });
         
         params.push(req.params.id);
         
-        await run(`UPDATE employees SET ${updates.join(', ')} WHERE id = ?`, params);
+        await query(`UPDATE employees SET ${updates.join(', ')} WHERE id = $${paramIdx}`, params);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -175,7 +153,7 @@ app.put('/api/employees/:id', async (req, res) => {
 
 app.delete('/api/employees/:id', async (req, res) => {
     try {
-        await run("DELETE FROM employees WHERE id = ?", [req.params.id]);
+        await query("DELETE FROM employees WHERE id = $1", [req.params.id]);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -193,17 +171,18 @@ app.get('/api/meetings', async (req, res) => {
         `;
         let where = [];
         let params = [];
+        let paramIdx = 1;
 
         if (hr_id) {
-            where.push("m.hr_id = ?");
+            where.push(`m.hr_id = $${paramIdx++}`);
             params.push(hr_id);
         }
         if (employee_id) {
-            where.push("m.employee_id = ?");
+            where.push(`m.employee_id = $${paramIdx++}`);
             params.push(employee_id);
         }
         if (status) {
-            where.push("m.status = ?");
+            where.push(`m.status = $${paramIdx++}`);
             params.push(status);
         }
 
@@ -213,15 +192,16 @@ app.get('/api/meetings', async (req, res) => {
         
         sql += " ORDER BY m.meeting_date ASC";
 
-        const rows = await all(sql, params);
+        const result = await query(sql, params);
+        const rows = result.rows;
         
         // Transform for frontend compatibility (nested employees object)
-        const result = rows.map(r => ({
+        const transformed = rows.map(r => ({
             ...r,
             employees: { name: r.employee_name }
         }));
         
-        res.json(result);
+        res.json(transformed);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -230,13 +210,12 @@ app.get('/api/meetings', async (req, res) => {
 app.post('/api/meetings', async (req, res) => {
     try {
         const { hr_id, employee_id, meeting_date, meeting_time, purpose } = req.body;
-        const result = await run(
+        const result = await query(
             `INSERT INTO meetings (hr_id, employee_id, meeting_date, meeting_time, purpose, status) 
-             VALUES (?, ?, ?, ?, ?, 'scheduled')`,
+             VALUES ($1, $2, $3, $4, $5, 'scheduled') RETURNING *`,
             [hr_id, employee_id, meeting_date, meeting_time, purpose]
         );
-        const newMeeting = await get("SELECT * FROM meetings WHERE id = ?", [result.lastID]);
-        res.json([newMeeting]); // Return array to match supabase behavior roughly
+        res.json([result.rows[0]]);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -245,7 +224,7 @@ app.post('/api/meetings', async (req, res) => {
 app.put('/api/meetings/:id', async (req, res) => {
     try {
         const { status } = req.body;
-        await run("UPDATE meetings SET status = ? WHERE id = ?", [status, req.params.id]);
+        await query("UPDATE meetings SET status = $1 WHERE id = $2", [status, req.params.id]);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -256,10 +235,8 @@ app.put('/api/meetings/:id', async (req, res) => {
 app.get('/api/tasks', async (req, res) => {
     try {
         const { hr_id } = req.query;
-        const rows = await all("SELECT * FROM tasks WHERE hr_id = ?", [hr_id]);
-        // Convert integer boolean to boolean
-        const tasks = rows.map(t => ({...t, completed: !!t.completed}));
-        res.json(tasks);
+        const result = await query("SELECT * FROM tasks WHERE hr_id = $1", [hr_id]);
+        res.json(result.rows);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -268,24 +245,27 @@ app.get('/api/tasks', async (req, res) => {
 app.post('/api/tasks', async (req, res) => {
     try {
         const { hr_id, tasks } = req.body;
-        // This is a "save all" endpoint from the frontend logic
-        // We will replace all tasks for this HR ID or upsert
-        // For simplicity, let's delete all and re-insert or just update
         
-        // Current frontend logic sends the whole list.
-        // We'll try to sync. 
-        
-        // Transaction
-        db.serialize(() => {
-            db.run("DELETE FROM tasks WHERE hr_id = ?", [hr_id]);
-            const stmt = db.prepare("INSERT INTO tasks (hr_id, title, deadline, priority, completed) VALUES (?, ?, ?, ?, ?)");
-            tasks.forEach(t => {
-                stmt.run(hr_id, t.title, t.deadline, t.priority, t.completed ? 1 : 0);
-            });
-            stmt.finalize();
-        });
-        
-        res.json({ success: true });
+        // Using a transaction
+        const client = await db.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query("DELETE FROM tasks WHERE hr_id = $1", [hr_id]);
+            
+            for (const t of tasks) {
+                await client.query(
+                    "INSERT INTO tasks (hr_id, title, deadline, priority, completed) VALUES ($1, $2, $3, $4, $5)",
+                    [hr_id, t.title, t.deadline, t.priority, t.completed]
+                );
+            }
+            await client.query('COMMIT');
+            res.json({ success: true });
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -294,7 +274,8 @@ app.post('/api/tasks', async (req, res) => {
 // MILESTONES
 app.get('/api/milestones/:employeeId', async (req, res) => {
     try {
-        const row = await get("SELECT plan_json FROM milestone_plans WHERE employee_id = ?", [req.params.employeeId]);
+        const result = await query("SELECT plan_json FROM milestone_plans WHERE employee_id = $1", [req.params.employeeId]);
+        const row = result.rows[0];
         if (row) {
             res.json(JSON.parse(row.plan_json));
         } else {
@@ -310,10 +291,10 @@ app.post('/api/milestones/:employeeId', async (req, res) => {
         const plan = req.body;
         const planJson = JSON.stringify(plan);
         // Upsert
-        await run(`
-            INSERT INTO milestone_plans (employee_id, plan_json) VALUES (?, ?)
-            ON CONFLICT(employee_id) DO UPDATE SET plan_json = ?
-        `, [req.params.employeeId, planJson, planJson]);
+        await query(`
+            INSERT INTO milestone_plans (employee_id, plan_json) VALUES ($1, $2)
+            ON CONFLICT(employee_id) DO UPDATE SET plan_json = $2, updated_at = CURRENT_TIMESTAMP
+        `, [req.params.employeeId, planJson]);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -325,15 +306,15 @@ app.get('/api/messages', async (req, res) => {
     try {
         const { sender_id, recipient_id } = req.query;
         // Get conversation
-        const rows = await all(`
+        const result = await query(`
             SELECT * FROM messages 
-            WHERE (sender_id = ? AND recipient_id = ?) 
-               OR (sender_id = ? AND recipient_id = ?)
+            WHERE (sender_id = $1 AND recipient_id = $2) 
+               OR (sender_id = $2 AND recipient_id = $1)
             ORDER BY timestamp ASC
-        `, [sender_id, recipient_id, recipient_id, sender_id]);
+        `, [sender_id, recipient_id]);
         
         // Transform
-        const messages = rows.map(m => ({
+        const messages = result.rows.map(m => ({
             id: m.id,
             senderId: m.sender_id,
             senderName: m.sender_name,
@@ -352,9 +333,9 @@ app.post('/api/messages', async (req, res) => {
     try {
         const { senderId, recipientId, senderName, content } = req.body;
         const id = uuidv4();
-        await run(`
+        await query(`
             INSERT INTO messages (id, sender_id, recipient_id, sender_name, content)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5)
         `, [id, senderId, recipientId, senderName, content]);
         
         res.json({ success: true });
@@ -382,7 +363,7 @@ app.post('/api/upload/:employeeId/:type', upload.single('file'), async (req, res
             else if (type === 'resume') field = 'resume_url';
             
             if (field) {
-                await run(`UPDATE employees SET ${field} = ? WHERE id = ?`, [publicUrl, employeeId]);
+                await query(`UPDATE employees SET ${field} = $1 WHERE id = $2`, [publicUrl, employeeId]);
             }
         }
         
@@ -395,8 +376,8 @@ app.post('/api/upload/:employeeId/:type', upload.single('file'), async (req, res
 // HR Profile
 app.get('/api/hr_profiles/:id', async (req, res) => {
     try {
-        const row = await get("SELECT * FROM hr_profiles WHERE id = ?", [req.params.id]);
-        res.json(row || null);
+        const result = await query("SELECT * FROM hr_profiles WHERE id = $1", [req.params.id]);
+        res.json(result.rows[0] || null);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -405,7 +386,7 @@ app.get('/api/hr_profiles/:id', async (req, res) => {
 app.put('/api/hr_profiles/:id', async (req, res) => {
     try {
         const { name, company, position } = req.body;
-        await run("UPDATE hr_profiles SET name = ?, company = ?, position = ? WHERE id = ?", [name, company, position, req.params.id]);
+        await query("UPDATE hr_profiles SET name = $1, company = $2, position = $3 WHERE id = $4", [name, company, position, req.params.id]);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
